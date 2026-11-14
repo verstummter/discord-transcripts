@@ -1,0 +1,152 @@
+/**
+ * CSS files with the .module.css suffix will be treated as CSS modules
+ * and scoped locally.
+ */
+
+.heroBanner {
+  padding: 5rem 0 3rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(88, 101, 242, 0.08) 0%, transparent 100%);
+}
+
+[data-theme='dark'] .heroBanner {
+  background: linear-gradient(180deg, rgba(88, 101, 242, 0.15) 0%, transparent 100%);
+}
+
+.heroContent {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.heroText {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.heroTitle {
+  font-size: 3.2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #5865f2, #7289da);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+}
+
+.heroSubtitle {
+  font-size: 1.4rem;
+  color: var(--ifm-color-emphasis-700);
+  margin-bottom: 0.75rem;
+}
+
+.heroDescription {
+  font-size: 1.05rem;
+  color: var(--ifm-color-emphasis-600);
+  max-width: 560px;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.installBlock {
+  width: 100%;
+  max-width: 480px;
+}
+
+.installBlock pre {
+  margin: 0;
+  text-align: left;
+}
+
+/* Features */
+.features {
+  padding: 3rem 0;
+}
+
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.featureCard {
+  background: var(--ifm-card-background-color);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 12px;
+  padding: 1.25rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.featureCard:hover {
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 4px 20px rgba(88, 101, 242, 0.1);
+}
+
+[data-theme='dark'] .featureCard {
+  border-color: #3f4147;
+}
+
+[data-theme='dark'] .featureCard:hover {
+  border-color: #5865f2;
+  box-shadow: 0 4px 20px rgba(88, 101, 242, 0.15);
+}
+
+.featureIcon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.featureCard h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.featureCard p {
+  font-size: 0.92rem;
+  color: var(--ifm-color-emphasis-600);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* Code example section */
+.codeSection {
+  padding: 3rem 0 5rem;
+}
+
+.codeSection h2 {
+  margin-bottom: 1.5rem;
+  font-size: 1.6rem;
+}
+
+@media screen and (max-width: 996px) {
+  .heroBanner {
+    padding: 3rem 1.5rem 2rem;
+  }
+
+  .heroTitle {
+    font-size: 2.2rem;
+  }
+
+  .heroSubtitle {
+    font-size: 1.1rem;
+  }
+
+  .buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .featureGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "name": "@getoeteter/discord-transcripts",
+  "version": "1.1.4",
+  "description": "Discord.js HTML transcript generator",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && node scripts/obfuscate.mjs",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "bun run clean && bun run build"
+  },
+  "keywords": [
+    "discord",
+    "transcript",
+    "html",
+    "discord.js",
+    "chat-export"
+  ],
+  "author": "getoeteter",
+  "license": "UNLICENSED",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "sanitize-html": "^2.18.2"
+  },
+  "peerDependencies": {
+    "discord.js": "^14.28.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/sanitize-html": "^2.16.2",
+    "terser": "^5.51.2",
+    "typescript": "^7.0.2"
+  }
+}
