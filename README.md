@@ -16,7 +16,7 @@ npm install @getoeteter/discord-transcripts
 bun add @getoeteter/discord-transcripts
 ```
 
-Requires `discord.js` ^14.0.0 as a peer dependency.
+Requires `discord.js` ^14.14.0 as a peer dependency.
 
 ## Quick Start
 
@@ -166,10 +166,10 @@ Check the exported types (`TranscriptData`, `DiscordMessage`, etc.) for the full
 - Responsive layout
 - Print styles
 
-## Note on Obfuscation
+## Contributing
 
-The distributed JavaScript files are minified and obfuscated (variable mangling, string encoding via `String.fromCharCode`). This is intentional source protection, there is no `eval`, no remote code execution, no data collection. The generated HTML transcripts are fully self-contained with no external requests beyond Discord CDN resources for message content (avatars, emoji, attachments), or zero external requests when `embedMedia` is enabled.
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build the project and verify a change. To report a security problem, follow [SECURITY.md](SECURITY.md) instead of opening a public issue.
 
 ## License
 
-Proprietary - all rights reserved.
+[MIT](LICENSE)

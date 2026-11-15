@@ -22,7 +22,7 @@ npm install @getoeteter/discord-transcripts
 bun add @getoeteter/discord-transcripts
 ```
 
-Requires `discord.js` ^14.0.0 as a peer dependency (only needed for `createTranscript`).
+Requires `discord.js` ^14.14.0 as a peer dependency (only needed for `createTranscript`).
 
 ## Quick Start
 

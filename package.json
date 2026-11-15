@@ -1,20 +1,21 @@
 {
   "name": "@getoeteter/discord-transcripts",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "description": "Discord.js HTML transcript generator",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "scripts": {
-    "build": "tsc && node scripts/obfuscate.mjs",
+    "build": "tsc",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "prepublishOnly": "bun run clean && bun run build"
@@ -27,7 +28,15 @@
     "chat-export"
   ],
   "author": "getoeteter",
-  "license": "UNLICENSED",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/verstummter/discord-transcripts.git"
+  },
+  "homepage": "https://github.com/verstummter/discord-transcripts#readme",
+  "bugs": {
+    "url": "https://github.com/verstummter/discord-transcripts/issues"
+  },
   "type": "module",
   "publishConfig": {
     "access": "public"
@@ -36,12 +45,12 @@
     "sanitize-html": "^2.18.2"
   },
   "peerDependencies": {
-    "discord.js": "^14.28.1"
+    "discord.js": "^14.14.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "@types/sanitize-html": "^2.16.2",
-    "terser": "^5.51.2",
+    "discord.js": "^14.28.1",
     "typescript": "^7.0.2"
   }
 }

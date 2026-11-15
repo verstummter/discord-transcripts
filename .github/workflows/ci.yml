@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  library:
+    name: Typecheck, build, examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run build
+      - name: Typecheck examples
+        run: bunx tsc --ignoreConfig --noEmit --module esnext --moduleResolution bundler --target es2017 --strict --skipLibCheck --types node examples/*.ts
+      - name: Run examples
+        run: |
+          bun run examples/markdown-stress-test.ts
+          bun run examples/showcase.ts
+          bun run examples/standalone-raw-data.ts
+
+  docs:
+    name: Docs site build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - run: npx tsc
+      - run: npm run build

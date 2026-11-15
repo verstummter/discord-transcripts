@@ -1,6 +1,7 @@
 node_modules
 .next
-.github
+.github/*
+!.github/workflows/
 dist
 coverage
 *.log
@@ -11,5 +12,3 @@ coverage
 website/build
 website/.docusaurus
 website/node_modules
-examples/markdown-stress-test.ts
-examples/showcase.ts
