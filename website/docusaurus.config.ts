@@ -72,6 +72,11 @@ const config: Config = {
           position: 'left',
         },
         {
+          href: 'https://github.com/verstummter/discord-transcripts',
+          label: 'GitHub',
+          position: 'right',
+        },
+        {
           href: 'https://www.npmjs.com/package/@getoeteter/discord-transcripts',
           label: 'npm',
           position: 'right',
@@ -104,6 +109,10 @@ const config: Config = {
             { label: 'Examples', to: '/docs/examples' },
             { label: 'Themes & Styling', to: '/docs/themes' },
             { label: 'Security', to: '/docs/security' },
+            {
+              label: 'GitHub',
+              href: 'https://github.com/verstummter/discord-transcripts',
+            },
             {
               label: 'npm',
               href: 'https://www.npmjs.com/package/@getoeteter/discord-transcripts',
