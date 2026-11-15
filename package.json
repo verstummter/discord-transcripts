@@ -1,13 +1,20 @@
 {
   "name": "@getoeteter/discord-transcripts",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Discord.js HTML transcript generator",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
     }
   },
   "files": [
@@ -15,10 +22,11 @@
     "src"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc -p tsconfig.cjs.json && node -e \"require('fs').writeFileSync('dist/cjs/package.json', JSON.stringify({type:'commonjs'}))\"",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "prepublishOnly": "bun run clean && bun run build"
+    "prepublishOnly": "bun run clean && bun run build",
+    "test": "bun test"
   },
   "keywords": [
     "discord",
@@ -52,5 +60,10 @@
     "@types/sanitize-html": "^2.16.2",
     "discord.js": "^14.28.1",
     "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "ws": "^8.20.1",
+    "undici": "^6.23.0",
+    "lodash": "^4.17.24"
   }
 }

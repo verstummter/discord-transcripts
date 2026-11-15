@@ -124,6 +124,48 @@ const message = {
 
 ---
 
+## Forwarded Messages
+
+Forwarded messages are rendered with a "Forwarded" label above the original content, including its attachments, embeds and stickers, and the original timestamp.
+
+`createTranscript` picks these up automatically (discord.js 14.16 or newer). With your own data, put the forwarded content in `messageSnapshots`:
+
+```typescript
+const message = {
+  id: "1",
+  type: 0,
+  content: "",
+  author: { id: "123", username: "someone" },
+  timestamp: "2026-03-15T14:00:00.000Z",
+  messageReference: { messageId: "456", channelId: "789" },
+  messageSnapshots: [
+    {
+      content: "The original message text",
+      timestamp: "2026-03-14T09:30:00.000Z",
+      attachments: [],
+      embeds: [],
+    },
+  ],
+};
+```
+
+---
+
+## Threads and Forum Posts
+
+`createTranscript` accepts any guild channel that holds messages: text and announcement channels, threads, forum posts (which are threads), and the text chat of voice and stage channels.
+
+```typescript
+// inside a thread or forum post
+if (interaction.channel?.isThread()) {
+  const result = await createTranscript(interaction.channel);
+}
+```
+
+For threads the header shows a thread icon, and the opening block reads "This is the start of the thread." With your own data, set `channel.type` to `DiscordChannelType.PublicThread`, `PrivateThread` or `AnnouncementThread`.
+
+---
+
 ## Thread Expansion
 
 With `expandThreads: true` enabled and thread messages included in the data, a "Show thread" toggle appears below the thread indicator. Click it to see the thread messages right there inline.

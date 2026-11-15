@@ -1,5 +1,5 @@
 import type {
-  TextChannel,
+  GuildTextBasedChannel,
   Message,
   Guild,
   GuildBasedChannel,
@@ -14,6 +14,10 @@ import type {
   DiscordChannel,
   DiscordPoll,
   DiscordInteraction,
+  DiscordAttachment,
+  DiscordEmbed,
+  DiscordSticker,
+  DiscordMessageSnapshot,
 } from "../types/discord.js";
 import { generateTranscriptHtml } from "./generator.js";
 import { resolveMediaUrls } from "./media-resolver.js";
@@ -41,7 +45,9 @@ export interface TranscriptResult {
 }
 
 /**
- * Generate an HTML transcript directly from a discord.js TextChannel.
+ * Generate an HTML transcript directly from a discord.js guild channel:
+ * text and announcement channels, threads and forum posts, and the text
+ * chat of voice and stage channels.
  *
  * ```ts
  * const result = await createTranscript(channel, { theme: "dark", limit: 200 });
@@ -51,7 +57,7 @@ export interface TranscriptResult {
  * ```
  */
 export async function createTranscript(
-  channel: TextChannel,
+  channel: GuildTextBasedChannel,
   options: CreateTranscriptOptions = {},
 ): Promise<TranscriptResult> {
   const {
@@ -88,7 +94,8 @@ export async function createTranscript(
       id: channel.id,
       name: channel.name,
       type: channel.type as number as DiscordChannel["type"],
-      topic: channel.topic,
+      // Threads and voice channels have no topic
+      topic: "topic" in channel ? channel.topic : null,
     },
     messages: messages.map((m) => transformMessage(m)),
     roles: rolesMap,
@@ -120,7 +127,7 @@ export async function createTranscript(
 // ─── Message Fetching ───
 
 async function fetchMessages(
-  channel: TextChannel,
+  channel: GuildTextBasedChannel,
   limit: number,
   before?: string,
   after?: string,
@@ -229,52 +236,8 @@ function transformMessage(msg: Message, includeReference = true): DiscordMessage
       id: u.id,
       username: u.username,
     })),
-    attachments: msg.attachments.map((a) => ({
-      id: a.id,
-      filename: a.name,
-      description: a.description,
-      contentType: a.contentType,
-      size: a.size,
-      url: a.url,
-      width: a.width,
-      height: a.height,
-      spoiler: a.spoiler,
-    })),
-    embeds: msg.embeds.map((e) => ({
-      title: e.title ?? undefined,
-      type: e.data.type,
-      description: e.description ?? undefined,
-      url: e.url ?? undefined,
-      timestamp: e.timestamp ?? undefined,
-      color: e.color ?? undefined,
-      footer: e.footer
-        ? { text: e.footer.text, iconUrl: e.footer.iconURL }
-        : undefined,
-      image: e.image
-        ? { url: e.image.url, width: e.image.width, height: e.image.height }
-        : undefined,
-      thumbnail: e.thumbnail
-        ? {
-          url: e.thumbnail.url,
-          width: e.thumbnail.width,
-          height: e.thumbnail.height,
-        }
-        : undefined,
-      video: e.video
-        ? { url: e.video.url, proxyUrl: e.video.proxyURL, width: e.video.width, height: e.video.height }
-        : undefined,
-      provider: e.provider
-        ? { name: e.provider.name, url: e.provider.url }
-        : undefined,
-      author: e.author
-        ? { name: e.author.name, url: e.author.url, iconUrl: e.author.iconURL }
-        : undefined,
-      fields: e.fields.map((f) => ({
-        name: f.name,
-        value: f.value,
-        inline: f.inline,
-      })),
-    })),
+    attachments: mapAttachments(msg.attachments),
+    embeds: mapEmbeds(msg.embeds),
     reactions: msg.reactions.cache.map((r) => ({
       emoji: {
         id: r.emoji.id,
@@ -293,6 +256,7 @@ function transformMessage(msg: Message, includeReference = true): DiscordMessage
     // Only one level deep: the reply preview never shows the reply's own parent
     referencedMessage:
       includeReference &&
+        !hasSnapshots(msg) &&
         msg.reference?.messageId &&
         msg.channel.messages.cache.has(msg.reference.messageId)
         ? transformMessage(
@@ -300,12 +264,7 @@ function transformMessage(msg: Message, includeReference = true): DiscordMessage
           false,
         )
         : undefined,
-    stickers: msg.stickers.map((s) => ({
-      id: s.id,
-      name: s.name,
-      formatType: s.format,
-      url: s.url,
-    })),
+    stickers: mapStickers(msg.stickers),
     thread: msg.thread
       ? {
         id: msg.thread.id,
@@ -317,7 +276,86 @@ function transformMessage(msg: Message, includeReference = true): DiscordMessage
     poll: transformPoll(msg),
     interaction: transformInteraction(msg),
     voiceMessage: transformVoiceMessage(msg),
+    messageSnapshots: transformSnapshots(msg),
   };
+}
+
+function mapAttachments(attachments: Message["attachments"]): DiscordAttachment[] {
+  return attachments.map((a) => ({
+    id: a.id,
+    filename: a.name,
+    description: a.description,
+    contentType: a.contentType,
+    size: a.size,
+    url: a.url,
+    width: a.width,
+    height: a.height,
+    spoiler: a.spoiler,
+  }));
+}
+
+function mapEmbeds(embeds: Message["embeds"]): DiscordEmbed[] {
+  return embeds.map((e) => ({
+    title: e.title ?? undefined,
+    type: e.data.type,
+    description: e.description ?? undefined,
+    url: e.url ?? undefined,
+    timestamp: e.timestamp ?? undefined,
+    color: e.color ?? undefined,
+    footer: e.footer
+      ? { text: e.footer.text, iconUrl: e.footer.iconURL }
+      : undefined,
+    image: e.image
+      ? { url: e.image.url, width: e.image.width, height: e.image.height }
+      : undefined,
+    thumbnail: e.thumbnail
+      ? { url: e.thumbnail.url, width: e.thumbnail.width, height: e.thumbnail.height }
+      : undefined,
+    video: e.video
+      ? { url: e.video.url, proxyUrl: e.video.proxyURL, width: e.video.width, height: e.video.height }
+      : undefined,
+    provider: e.provider
+      ? { name: e.provider.name, url: e.provider.url }
+      : undefined,
+    author: e.author
+      ? { name: e.author.name, url: e.author.url, iconUrl: e.author.iconURL }
+      : undefined,
+    fields: e.fields.map((f) => ({
+      name: f.name,
+      value: f.value,
+      inline: f.inline,
+    })),
+  }));
+}
+
+function mapStickers(stickers: Message["stickers"]): DiscordSticker[] {
+  return stickers.map((s) => ({
+    id: s.id,
+    name: s.name,
+    formatType: s.format,
+    url: s.url,
+  }));
+}
+
+// ─── Forwarded Messages ───
+
+/** `messageSnapshots` exists from discord.js 14.16; older versions simply have none */
+function hasSnapshots(msg: Message): boolean {
+  return ((msg as any).messageSnapshots?.size ?? 0) > 0;
+}
+
+function transformSnapshots(msg: Message): DiscordMessageSnapshot[] | undefined {
+  if (!hasSnapshots(msg)) return undefined;
+  const snapshots: any[] = [...(msg as any).messageSnapshots.values()];
+  return snapshots.map((snap) => ({
+    content: snap.content ?? "",
+    timestamp: snap.createdAt instanceof Date && !isNaN(snap.createdAt.getTime())
+      ? snap.createdAt.toISOString()
+      : undefined,
+    attachments: snap.attachments ? mapAttachments(snap.attachments) : [],
+    embeds: snap.embeds ? mapEmbeds(snap.embeds) : [],
+    stickers: snap.stickers ? mapStickers(snap.stickers) : [],
+  }));
 }
 
 /**

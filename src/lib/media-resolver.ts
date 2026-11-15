@@ -114,6 +114,20 @@ function collectMessageUrls(msg: DiscordMessage, urls: Set<string>): void {
 
   // Custom emojis in message content
   collectTextEmojis(msg.content, urls);
+
+  // Forwarded messages
+  if (msg.messageSnapshots) {
+    for (const snap of msg.messageSnapshots) {
+      for (const att of snap.attachments ?? []) {
+        if (att.url) urls.add(att.url);
+      }
+      for (const embed of snap.embeds ?? []) collectEmbedUrls(embed, urls);
+      for (const s of snap.stickers ?? []) {
+        if (s.url) urls.add(s.url);
+      }
+      collectTextEmojis(snap.content, urls);
+    }
+  }
 }
 
 /** Extract custom emoji CDN URLs from any text that may contain Discord emoji markup */
@@ -241,7 +255,7 @@ function isAllowedUrl(url: string): boolean {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
     const host = parsed.hostname.toLowerCase();
-    if (host === "localhost" || host.endsWith(".localhost") || host.startsWith("127.") || host === "[::1]" || host === "0.0.0.0" || host === "[::]" ) return false;
+    if (host === "localhost" || host.endsWith(".localhost") || host.startsWith("127.") || host === "[::1]" || host === "0.0.0.0" || host === "[::]") return false;
     if (host.startsWith("10.") || host.startsWith("192.168.") || host.startsWith("169.254.")) return false;
     if (PRIVATE_172.test(host)) return false;
     if (host.endsWith(".local") || host.endsWith(".internal")) return false;

@@ -40,6 +40,21 @@ These options only apply to `createTranscript()`.
 | `showAttachments` | `boolean` | `true` | Render attachments |
 | `showThreads` | `boolean` | `true` | Show thread indicators |
 | `showHeader` | `boolean` | `true` | Show channel header |
+| `locale` | `string` | `"en-US"` | Locale for dates, times and numbers ([BCP 47](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl#locales_argument) tag, e.g. `"de-DE"`) |
+| `timeZone` | `string` | system zone | IANA time zone for all timestamps, e.g. `"Europe/Berlin"` or `"UTC"` |
+
+### Locale and time zone
+
+By default, dates are formatted in US English using the time zone of the machine that generates the transcript. A bot hosted in one region will therefore stamp messages with that region's clock. Set both options to control what readers see:
+
+```typescript
+const html = generateTranscriptHtml(data, {
+  locale: "en-GB",
+  timeZone: "Europe/London",
+});
+```
+
+`timeZone` also decides where day separators fall and how the "Activity by Hour" chart is bucketed. An unrecognised locale or time zone falls back to the default instead of throwing. Relative times ("3 hours ago") and interface labels stay in English.
 
 ## Feature Toggles
 
@@ -49,6 +64,7 @@ All of these are **off by default**. Turn on the ones you want.
 |--------|------|---------|-------------|
 | `enableSearch` | `boolean` | `false` | Add [message search bar](./features/ui-features#message-search) |
 | `enableDateNav` | `boolean` | `false` | Add [jump-to-date navigation](./features/ui-features#jump-to-date-navigation) |
+| `enableThemeToggle` | `boolean` | `false` | Add a [light/dark toggle button](./features/ui-features#theme-toggle) |
 | `showUserStats` | `boolean` | `false` | Show [user statistics](./features/ui-features#user-statistics) section |
 | `enableCopyButton` | `boolean` | `false` | Show [copy button](./features/ui-features#copy-message-button) on hover |
 | `collapsibleEmbeds` | `boolean` | `false` | Make [embeds collapsible](./features/ui-features#collapsible-embeds) |
@@ -106,9 +122,12 @@ const html = generateTranscriptHtml(data, {
   showAttachments: true,
   showThreads: true,
   showHeader: true,
+  locale: "en-US",
+  timeZone: undefined, // the generating machine's zone
 
   // Feature toggles
   enableSearch: false,
+  enableThemeToggle: false,
   enableDateNav: false,
   showUserStats: false,
   enableCopyButton: false,

@@ -9,10 +9,10 @@ description: Complete API reference for createTranscript and generateTranscriptH
 
 ## `createTranscript(channel, options?)`
 
-Grabs messages from a discord.js `TextChannel` and turns them into an HTML transcript.
+Grabs messages from a discord.js guild channel and turns them into an HTML transcript.
 
 **Parameters:**
-- `channel` - A discord.js `TextChannel` instance
+- `channel` - Any discord.js guild channel that holds messages (`GuildTextBasedChannel`): text and announcement channels, threads and forum posts, and the text chat of voice and stage channels
 - `options` - `CreateTranscriptOptions` (optional, see [Options](./options))
 
 **Returns:** `Promise<TranscriptResult>`

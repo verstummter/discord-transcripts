@@ -87,6 +87,7 @@ interface DiscordMessage {
   poll?: DiscordPoll;
   interaction?: DiscordInteraction;
   voiceMessage?: DiscordVoiceMessage;
+  messageSnapshots?: DiscordMessageSnapshot[];    // Forwarded content
 }
 ```
 
@@ -216,6 +217,24 @@ interface DiscordInteraction {
 ```
 
 See [Slash Command Context](./features/discord-features#slash-command-context) for rendering details.
+
+---
+
+## DiscordMessageSnapshot
+
+The content of a forwarded message.
+
+```typescript
+interface DiscordMessageSnapshot {
+  content?: string;
+  timestamp?: string;           // ISO timestamp of the original message
+  attachments?: DiscordAttachment[];
+  embeds?: DiscordEmbed[];
+  stickers?: DiscordSticker[];
+}
+```
+
+See [Forwarded Messages](./features/discord-features#forwarded-messages) for rendering details.
 
 ---
 
@@ -351,6 +370,9 @@ interface TranscriptOptions {
   fontFamily?: string;
   compact?: boolean;
   pageTitle?: string;
+  locale?: string;
+  timeZone?: string;
+  enableThemeToggle?: boolean;
   enableSearch?: boolean;
   enableDateNav?: boolean;
   showUserStats?: boolean;

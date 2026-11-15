@@ -56,6 +56,24 @@ const html = generateTranscriptHtml(data, {
 
 ---
 
+## Theme Toggle
+
+Adds a sun/moon button to the top bar that switches the open transcript between the dark and light themes.
+
+**Option:** `enableThemeToggle: true`
+
+```typescript
+const html = generateTranscriptHtml(data, {
+  theme: "dark",            // the theme the file opens with
+  enableThemeToggle: true,
+});
+```
+
+- Both themes are always included in the file, so the toggle adds no extra CSS
+- The choice applies to the open page only; reloading returns to the `theme` option
+
+---
+
 ## User Statistics
 
 Shows a stats section at the bottom with who talked the most and when.
@@ -142,6 +160,7 @@ You can turn on all of these at once:
 ```typescript
 const html = generateTranscriptHtml(data, {
   enableSearch: true,
+  enableThemeToggle: true,
   enableDateNav: true,
   showUserStats: true,
   enableCopyButton: true,

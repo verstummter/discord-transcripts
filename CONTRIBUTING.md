@@ -9,6 +9,7 @@ You need [Bun](https://bun.sh) and Node.js 20 or newer.
 ```bash
 bun install
 bun run typecheck
+bun test
 bun run build
 ```
 
@@ -31,7 +32,9 @@ examples/                    # Runnable examples, used to verify changes
 
 ## Verifying a change
 
-There is no automated test suite. Rendering changes are checked with the examples, which import the built package:
+Unit tests live in `tests/` and run with `bun test`. They cover the markdown parser, the renderer, the media resolver and the discord.js adapter. Add or update a test with every behaviour change.
+
+Visual changes are also checked with the examples, which import the built package:
 
 ```bash
 bun run build
@@ -53,4 +56,4 @@ When you add a feature or fix a rendering bug, add a message to `examples/markdo
 
 ## Pull requests
 
-Keep each pull request to one change, describe what it does and how you checked it, and make sure `bun run typecheck` and `bun run build` pass. CI runs both, plus the examples and the docs build.
+Keep each pull request to one change, describe what it does and how you checked it, and make sure `bun run typecheck`, `bun test` and `bun run build` pass. CI runs all three, plus the examples and the docs build.

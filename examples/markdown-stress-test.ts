@@ -95,6 +95,20 @@ const data: TranscriptData = {
     msg("Suppressed embed: <https://example.com/no-embed> and a sentence ending in a link https://example.com/page."),
     msg("Parens: (https://en.wikipedia.org/wiki/Foo_(bar)) and [https://shown.example](https://target.example)"),
     msg("Not italic: 5 * 3 = 15 and 2 * 2 = 4. Not a mention: me@here.com"),
+    // Lists: numbered, star bullets, nested by indentation; subtext
+    msg("Numbered list:\n1. First\n2. Second\n   - nested bullet\n   - another\n3. Third"),
+    msg("Star bullets:\n* One\n* Two\n  * Nested\n    * Deeper"),
+    msg("Starts at five:\n5. Five\n6. Six"),
+    msg("Regular line\n-# Subtext line with **bold** and a [link](https://example.com)"),
+    // Forwarded message (messageSnapshots)
+    msg("", {
+      messageReference: { messageId: "999999999999999999", channelId: "888888888888888888" },
+      messageSnapshots: [{
+        content: "This message was **forwarded** from another channel",
+        timestamp: new Date(Date.now() - 86400000).toISOString(),
+        attachments: [{ id: "9001", filename: "notes.txt", size: 2048, url: "https://cdn.discordapp.com/attachments/1/2/notes.txt", contentType: "text/plain" }],
+      }],
+    }),
 
     // @everyone and @here
     msg("Hey @everyone, important announcement! Also @here for those online."),

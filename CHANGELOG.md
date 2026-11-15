@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-11-15
+
+### Added
+
+- CommonJS build alongside the ES module build, so `require("@getoeteter/discord-transcripts")` works.
+- `locale` and `timeZone` options for dates, times, numbers, day separators, and the hourly activity chart.
+- `enableThemeToggle` option: a button in the top bar that switches the open transcript between dark and light.
+- Forwarded messages, through the new `messageSnapshots` field and automatically in `createTranscript`.
+- `createTranscript` accepts threads, forum posts, announcement channels, and voice or stage channel chat, not only text channels.
+- Markdown: numbered lists, `*` bullets, nested lists, and `-#` subtext.
+- A test suite (`bun test`) covering the markdown parser, renderer, media resolver, and discord.js adapter.
+
+### Changed
+
+- Pagination controls now sit above the footer instead of below it, and changing page scrolls back to the top.
+- Searching a paginated transcript searches every page; pagination returns when the search is cleared.
+- The top bar drops the topic first, then the counts, as the window narrows.
+
+### Fixed
+
+- Heading styles were stripped by the sanitizer, so `#`, `##`, and `###` rendered at browser default sizes.
+- The channel name could be covered by the search box at medium window widths.
+
+### Security
+
+- Development and docs-site dependencies with known vulnerabilities are pinned to fixed versions. Neither set is shipped to users of the package.
+
 ## [1.2.0] - 2026-11-15
 
 The project is now open source.
@@ -58,5 +85,6 @@ The project is now open source.
 
 Versions 1.1.0 through 1.1.4 were published before this changelog was started.
 
+[1.3.0]: https://github.com/verstummter/discord-transcripts/releases/tag/v1.3.0
 [1.2.0]: https://github.com/verstummter/discord-transcripts/releases/tag/v1.2.0
 [1.1.5]: https://www.npmjs.com/package/@getoeteter/discord-transcripts/v/1.1.5

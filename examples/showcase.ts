@@ -18,7 +18,7 @@ import {
 
 // ─── Users ───
 
-const geto = { id: "1", username: "getoeteter", globalName: "getoeteter", avatar: "https://boobs.rip/api/uploads/sharex/i/5hYfpK8d.webp", discriminator: "5", bot: false };
+const geto = { id: "1", username: "getoeteter", globalName: "getoeteter", avatar: "https://cdn.boobs.rip/pfp.png", discriminator: "5", bot: false };
 const kai  = { id: "2", username: "kaizen", globalName: "Kai", avatar: null, discriminator: "1", bot: false };
 const nova = { id: "3", username: "nova.x", globalName: "Nova", avatar: null, discriminator: "3", bot: false };
 const mira = { id: "4", username: "mirabot", avatar: null, discriminator: "9", bot: true };
@@ -297,6 +297,7 @@ const html = generateTranscriptHtml(data, {
   dateFormat: "absolute",
   pageTitle: "#dev-chat — Nebula Labs",
   enableSearch: true,
+  enableThemeToggle: true,
   enableDateNav: true,
   showUserStats: true,
   enableCopyButton: true,

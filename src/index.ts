@@ -31,6 +31,7 @@ export type {
   DiscordPoll,
   DiscordInteraction,
   DiscordVoiceMessage,
+  DiscordMessageSnapshot,
   DiscordMessage,
   DiscordThread,
   DiscordComponent,

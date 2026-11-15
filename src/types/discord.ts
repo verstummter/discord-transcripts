@@ -218,6 +218,16 @@ export interface DiscordVoiceMessage {
   waveform?: string;
 }
 
+/** A forwarded message: the snapshot of the original that Discord stores with the forward */
+export interface DiscordMessageSnapshot {
+  content?: string;
+  /** ISO timestamp of the original message */
+  timestamp?: string;
+  attachments?: DiscordAttachment[];
+  embeds?: DiscordEmbed[];
+  stickers?: DiscordSticker[];
+}
+
 export interface DiscordMessage {
   id: string;
   type: DiscordMessageType;
@@ -242,6 +252,8 @@ export interface DiscordMessage {
   interaction?: DiscordInteraction;
   /** Voice message metadata */
   voiceMessage?: DiscordVoiceMessage;
+  /** Forwarded message content (Discord's `message_snapshots`) */
+  messageSnapshots?: DiscordMessageSnapshot[];
 }
 
 export interface DiscordThread {
@@ -337,6 +349,12 @@ export interface TranscriptOptions {
   compact?: boolean;
   /** Page title override */
   pageTitle?: string;
+  /** Locale used for dates, times and numbers (BCP 47 tag, default: "en-US") */
+  locale?: string;
+  /** IANA time zone used for all timestamps, e.g. "Europe/Berlin" (default: the generating machine's zone) */
+  timeZone?: string;
+  /** Show a light/dark theme toggle button in the top bar */
+  enableThemeToggle?: boolean;
   /** Enable message search bar */
   enableSearch?: boolean;
   /** Enable jump-to-date navigation sidebar */

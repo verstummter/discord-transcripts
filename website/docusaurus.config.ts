@@ -17,7 +17,7 @@ const config: Config = {
   url: 'https://docs.boobs.rip',
   baseUrl: '/',
 
-  organizationName: 'boobs-rip',
+  organizationName: 'verstummter',
   projectName: 'discord-transcripts',
 
   onBrokenLinks: 'throw',

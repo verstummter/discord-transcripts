@@ -10,13 +10,14 @@ permissions:
 
 jobs:
   library:
-    name: Typecheck, build, examples
+    name: Typecheck, test, build, examples
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
+      - run: bun test
       - run: bun run build
       - name: Typecheck examples
         run: bunx tsc --ignoreConfig --noEmit --module esnext --moduleResolution bundler --target es2017 --strict --skipLibCheck --types node examples/*.ts

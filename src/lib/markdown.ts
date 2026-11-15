@@ -11,7 +11,7 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [
     "strong", "em", "u", "s", "code", "pre", "br", "span",
     "div", "blockquote", "h1", "h2", "h3", "ul", "ol", "li", "a",
-    "img",
+    "img", "small",
   ],
   allowedAttributes: {
     span: ["class", "data-*", "style"],
@@ -21,8 +21,13 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     pre: ["class"],
     img: ["src", "alt", "class", "width", "height", "loading"],
     blockquote: ["class"],
+    h1: ["class"],
+    h2: ["class"],
+    h3: ["class"],
     ul: ["class"],
+    ol: ["class", "start"],
     li: ["class"],
+    small: ["class"],
   },
   allowedStyles: {
     span: {
@@ -35,6 +40,104 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     img: ["https", "http", "data"],
   },
 };
+
+// ─── Date formatting context ───
+
+const DEFAULT_LOCALE = "en-US";
+let _locale = DEFAULT_LOCALE;
+let _timeZone: string | undefined;
+let _dayKeyFormat: Intl.DateTimeFormat | undefined;
+let _hourFormat: Intl.DateTimeFormat | undefined;
+
+/**
+ * Set the locale and time zone used by every date helper in this module.
+ * Invalid values fall back to the defaults instead of throwing mid-render.
+ * @internal
+ */
+export function setDateContext(locale?: string, timeZone?: string): void {
+  _locale = DEFAULT_LOCALE;
+  _timeZone = undefined;
+  if (locale) {
+    try { new Intl.DateTimeFormat(locale); _locale = locale; } catch { /* keep default */ }
+  }
+  if (timeZone) {
+    try { new Intl.DateTimeFormat(DEFAULT_LOCALE, { timeZone }); _timeZone = timeZone; } catch { /* keep default */ }
+  }
+  _dayKeyFormat = undefined;
+  _hourFormat = undefined;
+}
+
+type DateParts = "date" | "time" | "datetime";
+
+/** Format a date in the configured locale and time zone. @internal */
+export function formatDate(date: Date, options: Intl.DateTimeFormatOptions = {}, parts: DateParts = "datetime"): string {
+  const opts = _timeZone ? { ...options, timeZone: _timeZone } : options;
+  if (parts === "date") return date.toLocaleDateString(_locale, opts);
+  if (parts === "time") return date.toLocaleTimeString(_locale, opts);
+  return date.toLocaleString(_locale, opts);
+}
+
+/** Format a number in the configured locale. @internal */
+export function formatNumber(value: number): string {
+  return value.toLocaleString(_locale);
+}
+
+/** Calendar-day key (YYYY-MM-DD) in the configured time zone. @internal */
+export function dayKey(date: Date): string {
+  _dayKeyFormat ??= new Intl.DateTimeFormat("en-CA", { timeZone: _timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+  return _dayKeyFormat.format(date);
+}
+
+/** Hour of day (0-23) in the configured time zone. @internal */
+export function hourOfDay(date: Date): number {
+  _hourFormat ??= new Intl.DateTimeFormat("en-US", { timeZone: _timeZone, hour: "numeric", hourCycle: "h23" });
+  const hour = parseInt(_hourFormat.format(date), 10);
+  return Number.isFinite(hour) ? hour % 24 : 0;
+}
+
+// ─── Lists ───
+
+/**
+ * Turn runs of list lines (`- item`, `* item`, `1. item`) into nested <ul>/<ol>.
+ * Two spaces of indentation open a nested level, as in Discord.
+ */
+function renderLists(html: string): string {
+  const LIST_LINE = /^( *)([-*]|\d{1,9}\.) (.+)$/;
+  const lines = html.split("\n");
+  const out: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!LIST_LINE.test(lines[i])) { out.push(lines[i]); continue; }
+
+    let block = "";
+    const open: string[] = []; // closing tags of the lists currently open, outermost first
+    for (; i < lines.length; i++) {
+      const m = LIST_LINE.exec(lines[i]);
+      if (!m) break;
+      const ordered = /\d/.test(m[2]);
+      const depth = Math.min(Math.floor(m[1].length / 2), open.length);
+      // Close deeper levels, and the current level if the list type changed
+      while (open.length > depth + 1) block += `</li>${open.pop()}`;
+      if (open.length === depth + 1) {
+        const sameType = open[depth] === (ordered ? "</ol>" : "</ul>");
+        if (sameType) block += "</li>";
+        else block += `</li>${open.pop()}`;
+      }
+      if (open.length === depth) {
+        block += ordered
+          ? `<ol class="discord-list discord-list-ordered" start="${parseInt(m[2], 10)}">`
+          : '<ul class="discord-list">';
+        open.push(ordered ? "</ol>" : "</ul>");
+      }
+      block += `<li class="discord-list-item">${m[3]}`;
+    }
+    while (open.length) block += `</li>${open.pop()}`;
+    out.push(block);
+    i--; // the outer loop advances past the last list line
+  }
+
+  return out.join("\n");
+}
 
 /** Escape HTML special characters */
 function escapeHtml(text: string): string {
@@ -341,7 +444,7 @@ export function parseDiscordMarkdown(
     /https?:\/\/(?:(?!&lt;|&gt;|&quot;)[^\s\uE000])+/g,
     (match) => {
       let url = match;
-      for (;;) {
+      for (; ;) {
         const trimmed = url.replace(/(?:[.,;:!?]|&#039;)+$/, "");
         const next = trimmed.endsWith(")") && trimmed.split(")").length > trimmed.split("(").length
           ? trimmed.slice(0, -1)
@@ -369,14 +472,11 @@ export function parseDiscordMarkdown(
     '<blockquote class="discord-blockquote">$1</blockquote>',
   );
 
-  // Unordered lists - wrap consecutive items in <ul>
-  html = html.replace(
-    /(^- .+$(?:\n^- .+$)*)/gm,
-    (block) => {
-      const items = block.split("\n").map(line => line.replace(/^- (.+)$/, '<li class="discord-list-item">$1</li>')).join("");
-      return `<ul class="discord-list">${items}</ul>`;
-    },
-  );
+  // Subtext (-# small muted line)
+  html = html.replace(/^-# (.+)$/gm, '<small class="discord-subtext">$1</small>');
+
+  // Lists: bullets (- or *), numbered (1.), nested by indentation
+  html = renderLists(html);
 
   // Bold italic (***text***)
   html = html.replace(
@@ -474,21 +574,21 @@ export function parseDiscordMarkdown(
 function formatDiscordTimestamp(date: Date, format: string): string {
   switch (format) {
     case "t": // Short time: 16:20
-      return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+      return formatDate(date, { hour: "2-digit", minute: "2-digit" }, "time");
     case "T": // Long time: 16:20:30
-      return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      return formatDate(date, { hour: "2-digit", minute: "2-digit", second: "2-digit" }, "time");
     case "d": // Short date: 20/04/2021
-      return date.toLocaleDateString("en-US");
+      return formatDate(date, {}, "date");
     case "D": // Long date: 20 April 2021
-      return date.toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" });
+      return formatDate(date, { day: "numeric", month: "long", year: "numeric" }, "date");
     case "f": // Short date/time: 20 April 2021 16:20
-      return date.toLocaleString("en-US", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      return formatDate(date, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
     case "F": // Long date/time: Tuesday, 20 April 2021 16:20
-      return date.toLocaleString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      return formatDate(date, { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
     case "R": // Relative time
       return formatRelativeTime(date);
     default:
-      return date.toLocaleString("en-US");
+      return formatDate(date);
   }
 }
 
@@ -526,7 +626,7 @@ export function formatMessageTimestamp(
   format: "relative" | "absolute" | "both" = "absolute",
 ): string {
   const date = new Date(isoString);
-  const absolute = date.toLocaleString("en-US", {
+  const absolute = formatDate(date, {
     month: "2-digit",
     day: "2-digit",
     year: "numeric",

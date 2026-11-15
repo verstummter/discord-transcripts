@@ -4,7 +4,7 @@ Generate standalone HTML transcripts from Discord channels. Works with discord.j
 
 The generated HTML files are completely self-contained - no external dependencies, no JavaScript frameworks. Just open the file in a browser.
 
-![Preview](https://cdn.boobs.rip/showcase-small.gif)
+![Preview](https://cdn.boobs.rip/showcase-new.gif)
 
 **[Documentation](https://docs.boobs.rip/)** | **[API Reference](https://docs.boobs.rip/docs/api-reference)** | **[Examples](https://docs.boobs.rip/docs/examples)**
 
@@ -17,6 +17,8 @@ bun add @getoeteter/discord-transcripts
 ```
 
 Requires `discord.js` ^14.14.0 as a peer dependency.
+
+The package ships both ES module and CommonJS builds, so `import` and `require` both work.
 
 ## Quick Start
 
@@ -141,7 +143,7 @@ Check the exported types (`TranscriptData`, `DiscordMessage`, etc.) for the full
 
 ## What's Supported
 
-- Text formatting (bold, italic, underline, strikethrough, spoilers, code blocks, headers, lists, block quotes)
+- Text formatting (bold, italic, underline, strikethrough, spoilers, code blocks, headers, bullet and numbered lists with nesting, subtext, block quotes)
 - User/role/channel mentions with proper colors and names
 - Custom and unicode emojis
 - Discord timestamps (all format types)
@@ -150,7 +152,8 @@ Check the exported types (`TranscriptData`, `DiscordMessage`, etc.) for the full
 - Image, video, audio, and file attachments
 - Reactions with counts
 - Replies with context preview
-- Threads
+- Threads and forum posts
+- Forwarded messages
 - Stickers
 - Buttons and select menus
 - Components V2 (containers, sections, text displays, media galleries, separators, files, thumbnails)
@@ -161,7 +164,8 @@ Check the exported types (`TranscriptData`, `DiscordMessage`, etc.) for the full
 - Image lightbox, collapsible embeds, copy-message button
 - Pagination
 - Offline/permanent transcripts via base64 media embedding
-- Dark and light themes
+- Dark and light themes, with an optional in-page toggle
+- Configurable locale and time zone
 - Compact mode
 - Responsive layout
 - Print styles

@@ -9,6 +9,7 @@ import type {
   DiscordRole,
   DiscordMessageType,
   DiscordPoll,
+  DiscordMessageSnapshot,
 } from "../types/discord.js";
 import {
   parseDiscordMarkdown,
@@ -19,6 +20,11 @@ import {
   isImageAttachment,
   isVideoAttachment,
   isAudioAttachment,
+  setDateContext,
+  formatDate,
+  formatNumber,
+  dayKey,
+  hourOfDay,
 } from "./markdown.js";
 import { TRANSCRIPT_CSS } from "./transcript-css.js";
 
@@ -39,6 +45,9 @@ const ICONS = {
   slashCommand: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14.9 3H9.1L4.1 21H8.1L13.1 3H14.9Z"/></svg>',
   copy: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>',
   poll: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>',
+  sun: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM2 13h2a1 1 0 0 0 0-2H2a1 1 0 0 0 0 2zm18 0h2a1 1 0 0 0 0-2h-2a1 1 0 0 0 0 2zM11 2v2a1 1 0 0 0 2 0V2a1 1 0 0 0-2 0zm0 18v2a1 1 0 0 0 2 0v-2a1 1 0 0 0-2 0zM5.99 4.58a1 1 0 0 0-1.41 1.41l1.06 1.06a1 1 0 0 0 1.41-1.41L5.99 4.58zm12.37 12.37a1 1 0 0 0-1.41 1.41l1.06 1.06a1 1 0 0 0 1.41-1.41l-1.06-1.06zm1.06-10.96a1 1 0 0 0-1.41-1.41l-1.06 1.06a1 1 0 0 0 1.41 1.41l1.06-1.06zM7.05 18.36a1 1 0 0 0-1.41-1.41l-1.06 1.06a1 1 0 0 0 1.41 1.41l1.06-1.06z"/></svg>',
+  moon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>',
+  forward: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg>',
   search: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>',
   calendar: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg>',
   chevron: '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9.29 6.71a1 1 0 0 0 0 1.41L13.17 12l-3.88 3.88a1 1 0 1 0 1.42 1.41l4.59-4.59a1 1 0 0 0 0-1.41L10.71 6.7a1 1 0 0 0-1.42 0z"/></svg>',
@@ -116,6 +125,17 @@ export function generateTranscriptHtml(
 ): string {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   _mediaMap = opts._resolvedMedia;
+  setDateContext(opts.locale, opts.timeZone);
+  try {
+    return buildDocument(data, opts);
+  } finally {
+    // Never leak one render's media map or locale into the next
+    _mediaMap = undefined;
+    setDateContext();
+  }
+}
+
+function buildDocument(data: TranscriptData, opts: TranscriptOptions): string {
   const channelName = data.channel.name;
   const guildName = data.guild?.name ?? "Discord";
   const title = opts.pageTitle ?? `${guildName} - #${channelName}`;
@@ -134,7 +154,6 @@ export function generateTranscriptHtml(
 
   // Pagination
   const paginationScript = opts.messagesPerPage ? buildPaginationScript(opts.messagesPerPage) : "";
-  const paginationControls = opts.messagesPerPage ? `<div class="discord-pagination" id="discord-pagination"></div>` : "";
 
   // JSON export
   const jsonBlock = opts.includeJson
@@ -167,7 +186,6 @@ ${customCss}
 <body>
 <div class="discord-transcript ${themeClass}${compactClass}" id="discord-top">
 ${bodyHtml}
-${paginationControls}
 <a class="discord-to-top" id="discord-to-top" href="#discord-top" aria-label="Back to top" title="Back to top">${ICONS.chevron}</a>
 </div>
 ${opts.enableLightbox ? `<div class="discord-lightbox" id="discord-lightbox"><div class="discord-lightbox-backdrop"></div><img class="discord-lightbox-img" id="discord-lightbox-img" alt="" /><a class="discord-lightbox-link" id="discord-lightbox-link" target="_blank" rel="noopener noreferrer">Open original</a></div>` : ""}
@@ -178,7 +196,6 @@ ${paginationScript}
 </script>
 </body>
 </html>`;
-  _mediaMap = undefined;
   return html;
 }
 
@@ -202,6 +219,20 @@ var img=e.target;if(img.tagName==='IMG'&&img.src.indexOf('/emojis/')!==-1&&img.s
 (function(){var tt=document.getElementById('discord-to-top');if(!tt)return;
 function u(){tt.classList.toggle('visible',(window.pageYOffset||document.documentElement.scrollTop)>600)}
 window.addEventListener('scroll',u,{passive:true});u()})();`);
+
+  // Light/dark theme toggle
+  if (opts.enableThemeToggle) {
+    parts.push(`(function(){
+var btn=document.getElementById('discord-theme-toggle'),root=document.querySelector('.discord-transcript');
+if(!btn||!root)return;
+btn.addEventListener('click',function(){
+var light=!root.classList.contains('discord-light');
+root.classList.toggle('discord-light',light);root.classList.toggle('discord-dark',!light);
+document.documentElement.style.colorScheme=light?'light':'dark';
+document.body.style.background=light?'#fff':'#313338';
+});
+})();`);
+  }
 
   // Collapsible embeds
   if (opts.collapsibleEmbeds) {
@@ -239,7 +270,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')lb.classList
     parts.push(`(function(){
 var inp=document.getElementById('discord-search-input'),cnt=document.getElementById('discord-search-count'),empty=document.getElementById('discord-search-empty'),bar=document.getElementById('discord-search');
 if(!inp)return;var t;
-var SEL='.discord-message-username,.discord-message-text,.discord-system-message-content,.discord-embed,.discord-poll,.discord-v2-container,.discord-attachment-file';
+var SEL='.discord-message-username,.discord-message-text,.discord-system-message-content,.discord-embed,.discord-poll,.discord-v2-container,.discord-attachment-file,.discord-forwarded';
 function run(){
 var q=inp.value.toLowerCase().trim(),msgs=document.querySelectorAll('.discord-message');
 var n=0;msgs.forEach(function(m){
@@ -251,6 +282,7 @@ else{m.classList.add('discord-search-hidden');m.classList.remove('discord-search
 cnt.textContent=q?(n+(n===1?' result':' results')):'';
 if(bar)bar.classList.toggle('has-query',!!q);
 if(empty)empty.style.display=(q&&n===0)?'block':'none';
+document.dispatchEvent(new Event('discord-search'));
 }
 inp.addEventListener('input',function(){clearTimeout(t);t=setTimeout(run,200)});
 document.addEventListener('keydown',function(e){
@@ -295,11 +327,17 @@ function buildPaginationScript(perPage: number): string {
 var msgs=document.querySelectorAll('.discord-messages > .discord-message, .discord-messages > .discord-date-separator');
 var pp=${perPage},page=0,total=Math.ceil(msgs.length/pp);
 var nav=document.getElementById('discord-pagination');if(!nav||total<=1)return;
-function show(){msgs.forEach(function(m,i){m.style.display=(i>=page*pp&&i<(page+1)*pp)?'':'none'});render()}
+function searching(){return !!document.querySelector('.discord-search-bar.has-query')}
+function show(){
+if(searching()){msgs.forEach(function(m){m.style.display=''});nav.style.display='none';return}
+nav.style.display='';
+msgs.forEach(function(m,i){m.style.display=(i>=page*pp&&i<(page+1)*pp)?'':'none'});render()}
+function go(d){page+=d;show();window.scrollTo(0,0)}
 function render(){nav.innerHTML='';
-var prev=document.createElement('button');prev.className='discord-page-btn';prev.textContent='\u25C0 Prev';prev.disabled=page===0;prev.onclick=function(){page--;show()};nav.appendChild(prev);
+var prev=document.createElement('button');prev.className='discord-page-btn';prev.textContent='\u25C0 Prev';prev.disabled=page===0;prev.onclick=function(){go(-1)};nav.appendChild(prev);
 var sp=document.createElement('span');sp.className='discord-page-info';sp.textContent='Page '+(page+1)+' of '+total;nav.appendChild(sp);
-var next=document.createElement('button');next.className='discord-page-btn';next.textContent='Next \u25B6';next.disabled=page>=total-1;next.onclick=function(){page++;show()};nav.appendChild(next)}
+var next=document.createElement('button');next.className='discord-page-btn';next.textContent='Next \u25B6';next.disabled=page>=total-1;next.onclick=function(){go(1)};nav.appendChild(next)}
+document.addEventListener('discord-search',show);
 show()})();`;
 }
 
@@ -347,7 +385,7 @@ function renderTranscript(data: TranscriptData, opts: TranscriptOptions): string
       const date = new Date(group[0].timestamp);
       parts.push(`<div class="discord-date-separator">
 <div class="discord-date-separator-line"></div>
-<span class="discord-date-separator-text">${esc(date.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }))}</span>
+<span class="discord-date-separator-text">${esc(formatDate(date, { weekday: "long", year: "numeric", month: "long", day: "numeric" }, "date"))}</span>
 <div class="discord-date-separator-line"></div>
 </div>`);
     }
@@ -357,6 +395,10 @@ function renderTranscript(data: TranscriptData, opts: TranscriptOptions): string
   }
 
   parts.push(`</div>`);
+
+  if (opts.messagesPerPage) {
+    parts.push(`<div class="discord-pagination" id="discord-pagination"></div>`);
+  }
 
   if (opts.enableSearch) {
     parts.push(`<div class="discord-search-empty" id="discord-search-empty"><div class="discord-search-empty-icon">${ICONS.search}</div><div class="discord-search-empty-title">No results found</div><div>No messages match your search.</div></div>`);
@@ -368,7 +410,7 @@ function renderTranscript(data: TranscriptData, opts: TranscriptOptions): string
   }
 
   const genDate = data.generatedAt
-    ? ` on ${new Date(data.generatedAt).toLocaleString("en-US")}`
+    ? ` on ${esc(formatDate(new Date(data.generatedAt)))}`
     : "";
   parts.push(
     `<div class="discord-transcript-footer"><p>Transcript generated${genDate} &bull; ${data.totalMessages ?? data.messages.length} messages</p></div>`,
@@ -391,8 +433,11 @@ function renderTools(opts: TranscriptOptions): string {
   const dateNav = opts.enableDateNav
     ? `<div class="discord-date-nav" id="discord-date-nav"><button type="button" class="discord-date-nav-toggle" id="discord-date-nav-toggle" aria-haspopup="true" aria-expanded="false">${ICONS.calendar}<span>Jump to date</span><span class="discord-date-nav-chevron">${ICONS.chevron}</span></button><div class="discord-date-nav-list" id="discord-date-nav-list"></div></div>`
     : "";
-  if (!search && !dateNav) return "";
-  return `<div class="discord-header-tools">${search}${dateNav}</div>`;
+  const themeToggle = opts.enableThemeToggle
+    ? `<button type="button" class="discord-theme-toggle" id="discord-theme-toggle" aria-label="Toggle light or dark theme" title="Toggle theme"><span class="discord-theme-icon-sun">${ICONS.sun}</span><span class="discord-theme-icon-moon">${ICONS.moon}</span></button>`
+    : "";
+  if (!search && !dateNav && !themeToggle) return "";
+  return `<div class="discord-header-tools">${search}${dateNav}${themeToggle}</div>`;
 }
 
 function renderHeader(data: TranscriptData, tools: string, participants: number): string {
@@ -409,7 +454,7 @@ function renderHeader(data: TranscriptData, tools: string, participants: number)
     ? `<div class="discord-channel-topic" title="${esc(channel.topic)}">${esc(channel.topic)}</div>`
     : "";
   const genAt = data.generatedAt
-    ? `<span>${new Date(data.generatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>`
+    ? `<span>${esc(formatDate(new Date(data.generatedAt), { month: "short", day: "numeric", year: "numeric" }, "date"))}</span>`
     : "";
   const people = participants > 0
     ? `<span>${participants} ${participants === 1 ? "participant" : "participants"}</span>`
@@ -432,13 +477,20 @@ ${tools}
 function getChannelIconHtml(type: number): string {
   if (type === 2 || type === 13) return `<span class="discord-channel-icon">${ICONS.voice}</span>`;
   if (type === 5) return `<span class="discord-channel-icon">${ICONS.announce}</span>`;
+  if (isThreadType(type)) return `<span class="discord-channel-icon">${ICONS.thread}</span>`;
   return `<span class="discord-channel-icon">${ICONS.hash}</span>`;
 }
 
 function getChannelBeginningIcon(type: number): string {
   if (type === 2 || type === 13) return ICONS.voice;
   if (type === 5) return ICONS.announce;
+  if (isThreadType(type)) return ICONS.thread;
   return ICONS.hash;
+}
+
+/** Announcement, public and private threads (forum posts are public threads) */
+function isThreadType(type: number): boolean {
+  return type === 10 || type === 11 || type === 12;
 }
 
 // ─── Channel Beginning ───
@@ -450,9 +502,9 @@ function renderChannelBeginning(channel: TranscriptData["channel"]): string {
     : "";
   return `<div class="discord-channel-beginning">
 <div class="discord-channel-beginning-icon">${icon}</div>
-<h2 class="discord-channel-beginning-title">Welcome to #${esc(channel.name)}!</h2>
+<h2 class="discord-channel-beginning-title">${isThreadType(channel.type) ? esc(channel.name) : `Welcome to #${esc(channel.name)}!`}</h2>
 ${topic}
-<p class="discord-channel-beginning-subtitle">This is the start of the #${esc(channel.name)} channel.</p>
+<p class="discord-channel-beginning-subtitle">${isThreadType(channel.type) ? "This is the start of the thread." : `This is the start of the #${esc(channel.name)} channel.`}</p>
 </div>`;
 }
 
@@ -518,7 +570,7 @@ ${refAvatar}
 ${jumpOpen}<span class="discord-reply-username">${esc(ref.author.globalName || ref.author.username)}</span>
 <span class="discord-reply-content">${refContent}</span>${jumpClose}
 </div>`);
-  } else if (message.messageReference) {
+  } else if (message.messageReference && !message.messageSnapshots?.length) {
     parts.push(`<div class="discord-reply-context">
 <span class="discord-reply-content discord-reply-deleted">Original message was deleted</span>
 </div>`);
@@ -540,10 +592,7 @@ ${jumpOpen}<span class="discord-reply-username">${esc(ref.author.globalName || r
 
   // Gutter for grouped
   if (!isGroupStart) {
-    const shortTime = new Date(message.timestamp).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const shortTime = formatDate(new Date(message.timestamp), { hour: "2-digit", minute: "2-digit" }, "time");
     parts.push(
       `<div class="discord-message-gutter"><span class="discord-message-timestamp-short">${esc(shortTime)}</span></div>`,
     );
@@ -569,7 +618,7 @@ ${jumpOpen}<span class="discord-reply-username">${esc(ref.author.globalName || r
         ? `<span class="discord-message-timestamp">${esc(formatMessageTimestamp(message.timestamp, opts.dateFormat))}</span>`
         : "";
     const edited = message.editedTimestamp
-      ? `<span class="discord-message-edited" title="Edited: ${esc(new Date(message.editedTimestamp).toLocaleString())}">(edited)</span>`
+      ? `<span class="discord-message-edited" title="Edited: ${esc(formatDate(new Date(message.editedTimestamp)))}">(edited)</span>`
       : "";
 
     const copyBtn = opts.enableCopyButton
@@ -595,6 +644,13 @@ ${botBadge}${pinIcon}${timestamp}${edited}${copyBtn}
       _mediaMap,
     );
     parts.push(`<div class="discord-message-text">${parsedContent}</div>`);
+  }
+
+  // Forwarded messages
+  if (message.messageSnapshots?.length) {
+    for (const snapshot of message.messageSnapshots) {
+      parts.push(renderForwarded(snapshot, opts, data, allMentions));
+    }
   }
 
   // Stickers
@@ -682,6 +738,54 @@ ${threadCount}
   }
 
   parts.push(`</div></div></div>`);
+  return parts.join("\n");
+}
+
+// ─── Forwarded Message ───
+
+function renderForwarded(
+  snapshot: DiscordMessageSnapshot,
+  opts: TranscriptOptions,
+  data: TranscriptData,
+  mentions: Array<{ id: string; username: string }>,
+): string {
+  const parts: string[] = [];
+  parts.push(`<div class="discord-forwarded">
+<div class="discord-forwarded-label">${ICONS.forward}<span>Forwarded</span></div>`);
+
+  if (snapshot.content) {
+    parts.push(`<div class="discord-message-text">${parseDiscordMarkdown(snapshot.content, data.roles, data.channels, mentions, _mediaMap)}</div>`);
+  }
+
+  if (snapshot.stickers?.length) {
+    parts.push(`<div class="discord-stickers">`);
+    for (const sticker of snapshot.stickers) {
+      parts.push(sticker.url
+        ? `<div class="discord-sticker"><img src="${esc(resolveMedia(sticker.url))}" alt="${esc(sticker.name)}" class="discord-sticker-img" width="160" height="160" loading="lazy" /></div>`
+        : `<div class="discord-sticker"><div class="discord-sticker-placeholder">${esc(sticker.name)}</div></div>`);
+    }
+    parts.push(`</div>`);
+  }
+
+  if (opts.showAttachments !== false && snapshot.attachments?.length) {
+    parts.push(`<div class="discord-attachments">`);
+    for (const att of snapshot.attachments) parts.push(renderAttachment(att, opts.maxImageWidth));
+    parts.push(`</div>`);
+  }
+
+  if (opts.showEmbeds !== false && snapshot.embeds?.length) {
+    parts.push(`<div class="discord-embeds">`);
+    for (const embed of snapshot.embeds) {
+      parts.push(renderEmbed(embed, { roles: data.roles, channels: data.channels, mentions }, opts.collapsibleEmbeds));
+    }
+    parts.push(`</div>`);
+  }
+
+  if (snapshot.timestamp && opts.showTimestamps !== false) {
+    parts.push(`<div class="discord-forwarded-footer">${esc(formatMessageTimestamp(snapshot.timestamp, opts.dateFormat))}</div>`);
+  }
+
+  parts.push(`</div>`);
   return parts.join("\n");
 }
 
@@ -785,7 +889,7 @@ function renderEmbed(embed: DiscordEmbed, ctx?: { roles?: Record<string, Discord
       ? `<img src="${esc(resolveMedia(embed.footer.iconUrl))}" alt="" class="discord-embed-footer-icon" width="20" height="20" loading="lazy" />`
       : "";
     const ts = embed.timestamp
-      ? `<span class="discord-embed-footer-separator"> &bull; ${esc(new Date(embed.timestamp).toLocaleString("en-US"))}</span>`
+      ? `<span class="discord-embed-footer-separator"> &bull; ${esc(formatDate(new Date(embed.timestamp)))}</span>`
       : "";
     const footerParsed = parseDiscordMarkdown(embed.footer.text, ctx?.roles, ctx?.channels as any, ctx?.mentions, _mediaMap);
     parts.push(
@@ -1155,7 +1259,7 @@ function renderUserStats(data: TranscriptData): string {
   const hours = new Array(24).fill(0);
   let attachmentCount = 0;
   for (const msg of data.messages) {
-    hours[new Date(msg.timestamp).getHours()]++;
+    hours[hourOfDay(new Date(msg.timestamp))]++;
     attachmentCount += msg.attachments?.length ?? 0;
   }
   const maxHour = Math.max(...hours, 1);
@@ -1171,9 +1275,9 @@ function renderUserStats(data: TranscriptData): string {
   const tile = (value: string, label: string) =>
     `<div class="discord-stats-tile"><div class="discord-stats-tile-value">${esc(value)}</div><div class="discord-stats-tile-label">${esc(label)}</div></div>`;
   const tiles = [
-    tile(total.toLocaleString("en-US"), total === 1 ? "Message" : "Messages"),
+    tile(formatNumber(total), total === 1 ? "Message" : "Messages"),
     tile(String(sorted.length), sorted.length === 1 ? "Participant" : "Participants"),
-    tile(attachmentCount.toLocaleString("en-US"), attachmentCount === 1 ? "Attachment" : "Attachments"),
+    tile(formatNumber(attachmentCount), attachmentCount === 1 ? "Attachment" : "Attachments"),
     tile(total ? hourLabel(peakHour).replace("a", " AM").replace("p", " PM") : "\u2014", "Busiest hour"),
   ].join("");
 
@@ -1274,11 +1378,5 @@ function groupMessages(messages: DiscordMessage[]): DiscordMessage[][] {
 }
 
 function isSameDay(a: string, b: string): boolean {
-  const da = new Date(a);
-  const db = new Date(b);
-  return (
-    da.getFullYear() === db.getFullYear() &&
-    da.getMonth() === db.getMonth() &&
-    da.getDate() === db.getDate()
-  );
+  return dayKey(new Date(a)) === dayKey(new Date(b));
 }
