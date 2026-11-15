@@ -90,7 +90,7 @@ export async function createTranscript(
       type: channel.type as number as DiscordChannel["type"],
       topic: channel.topic,
     },
-    messages: messages.map(transformMessage),
+    messages: messages.map((m) => transformMessage(m)),
     roles: rolesMap,
     channels: channelsMap,
     memberRoles: memberRolesMap,
@@ -208,7 +208,7 @@ async function buildMemberRolesMap(
 
 // ─── Message Transformer ───
 
-function transformMessage(msg: Message): DiscordMessage {
+function transformMessage(msg: Message, includeReference = true): DiscordMessage {
   return {
     id: msg.id,
     type: msg.type as number as DiscordMessage["type"],
@@ -290,11 +290,14 @@ function transformMessage(msg: Message): DiscordMessage {
         guildId: msg.reference.guildId ?? undefined,
       }
       : undefined,
+    // Only one level deep: the reply preview never shows the reply's own parent
     referencedMessage:
-      msg.reference?.messageId &&
+      includeReference &&
+        msg.reference?.messageId &&
         msg.channel.messages.cache.has(msg.reference.messageId)
         ? transformMessage(
           msg.channel.messages.cache.get(msg.reference.messageId)!,
+          false,
         )
         : undefined,
     stickers: msg.stickers.map((s) => ({

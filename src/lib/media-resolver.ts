@@ -8,6 +8,7 @@ import { getAvatarUrl } from "./markdown.js";
 
 const CONCURRENCY = 10;
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB per resource
+const MAX_REDIRECTS = 5;
 
 /**
  * Collect all media URLs from transcript data, download them,
@@ -166,9 +167,14 @@ function collectComponentUrls(comp: DiscordComponent, urls: Set<string>): void {
     }
   }
 
+  // V2 standalone thumbnail
+  if (comp.media?.url) {
+    urls.add(comp.media.url);
+  }
+
   // V2 file
-  if (comp.url && comp.type === 16) {
-    urls.add(comp.url);
+  if (comp.file?.url) {
+    urls.add(comp.file.url);
   }
 
   // V2 text display emojis
@@ -235,7 +241,7 @@ function isAllowedUrl(url: string): boolean {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
     const host = parsed.hostname.toLowerCase();
-    if (host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "0.0.0.0" || host === "[::]" ) return false;
+    if (host === "localhost" || host.endsWith(".localhost") || host.startsWith("127.") || host === "[::1]" || host === "0.0.0.0" || host === "[::]" ) return false;
     if (host.startsWith("10.") || host.startsWith("192.168.") || host.startsWith("169.254.")) return false;
     if (PRIVATE_172.test(host)) return false;
     if (host.endsWith(".local") || host.endsWith(".internal")) return false;
@@ -248,13 +254,24 @@ function isAllowedUrl(url: string): boolean {
 }
 
 async function downloadAsDataUri(url: string): Promise<string | null> {
-  if (!isAllowedUrl(url)) return null;
   try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "discord-transcripts/media-resolver" },
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!res.ok) return null;
+    // Follow redirects by hand so every hop is checked against the SSRF rules
+    const signal = AbortSignal.timeout(30_000);
+    let current = url;
+    let res: Response | undefined;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      if (!isAllowedUrl(current)) return null;
+      res = await fetch(current, {
+        headers: { "User-Agent": "discord-transcripts/media-resolver" },
+        redirect: "manual",
+        signal,
+      });
+      if (res.status < 300 || res.status >= 400) break;
+      const location = res.headers.get("location");
+      if (!location || hop === MAX_REDIRECTS) return null;
+      current = new URL(location, current).toString();
+    }
+    if (!res || !res.ok) return null;
 
     const contentLength = res.headers.get("content-length");
     if (contentLength && parseInt(contentLength) > MAX_FILE_SIZE) return null;

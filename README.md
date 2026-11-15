@@ -4,7 +4,7 @@ Generate standalone HTML transcripts from Discord channels. Works with discord.j
 
 The generated HTML files are completely self-contained - no external dependencies, no JavaScript frameworks. Just open the file in a browser.
 
-![Preview](https://i.postimg.cc/0yynRYFb/SSQ9S3p6.gif)
+![Preview](https://cdn.boobs.rip/showcase-small.gif)
 
 **[Documentation](https://docs.boobs.rip/)** | **[API Reference](https://docs.boobs.rip/docs/api-reference)** | **[Examples](https://docs.boobs.rip/docs/examples)**
 

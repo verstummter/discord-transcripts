@@ -283,10 +283,18 @@ export function parseDiscordMarkdown(
 ): string {
   if (!content) return "";
 
-  let html = escapeHtml(content);
+  // Private-use characters delimit protected tokens below; never accept them from input
+  let html = escapeHtml(content.replace(/[\uE000\uE001]/g, ""));
 
-  // Tokenize code blocks and inline code to protect from markdown processing
+  // Tokenize code blocks, inline code and links to protect them from markdown processing
   const codeTokens: string[] = [];
+  const protect = (fragment: string): string => {
+    const i = codeTokens.length;
+    codeTokens.push(fragment);
+    return `\uE000${i}\uE001`;
+  };
+  const linkOpen = (href: string) =>
+    `<a href="${href}" class="discord-link" target="_blank" rel="noopener noreferrer">`;
   html = html.replace(
     /```(\w+\n)?([\s\S]*?)```/g,
     (_match, langLine: string | undefined, code: string) => {
@@ -307,6 +315,42 @@ export function parseDiscordMarkdown(
       const i = codeTokens.length;
       codeTokens.push(`<code class="discord-inline-code">${code}</code>`);
       return `\uE000${i}\uE001`;
+    },
+  );
+
+  // Links are tokenized before any emphasis runs, so characters such as _ * ~ inside
+  // a URL are never treated as formatting.
+
+  // Masked links [text](url) - the label keeps its formatting, the tags are protected
+  html = html.replace(
+    /\[([^\]]+)\]\((&lt;)?((https?:\/\/)[^\s)]+?)(&gt;)?\)/g,
+    (_match, text: string, _lt: string | undefined, url: string) => {
+      const label = /^https?:\/\//.test(text) ? protect(text) : text;
+      return `${protect(linkOpen(url))}${label}${protect("</a>")}`;
+    },
+  );
+
+  // Embed-suppressed links <url>
+  html = html.replace(
+    /&lt;(https?:\/\/(?:(?!&lt;|&gt;|&quot;)[^\s\uE000])+)&gt;/g,
+    (_match, url: string) => protect(`${linkOpen(url)}${url}</a>`),
+  );
+
+  // Bare URLs - trailing punctuation and unbalanced closing parens stay outside the link
+  html = html.replace(
+    /https?:\/\/(?:(?!&lt;|&gt;|&quot;)[^\s\uE000])+/g,
+    (match) => {
+      let url = match;
+      for (;;) {
+        const trimmed = url.replace(/(?:[.,;:!?]|&#039;)+$/, "");
+        const next = trimmed.endsWith(")") && trimmed.split(")").length > trimmed.split("(").length
+          ? trimmed.slice(0, -1)
+          : trimmed;
+        if (next === url) break;
+        url = next;
+      }
+      if (!/^https?:\/\/./.test(url)) return match;
+      return protect(`${linkOpen(url)}${url}</a>`) + match.slice(url.length);
     },
   );
 
@@ -347,7 +391,7 @@ export function parseDiscordMarkdown(
   html = html.replace(/__(.+?)__/g, "<u>$1</u>");
 
   // Italic (*text* or _text_)
-  html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
+  html = html.replace(/\*(?!\s)(.+?)(?<!\s)\*/g, "<em>$1</em>");
   html = html.replace(/(?<!\w)_(.+?)_(?!\w)/g, "<em>$1</em>");
 
   // Strikethrough (~~text~~)
@@ -357,18 +401,6 @@ export function parseDiscordMarkdown(
   html = html.replace(
     /\|\|(.+?)\|\|/g,
     '<span class="discord-spoiler" data-spoiler="true">$1</span>',
-  );
-
-  // Masked links [text](url)
-  html = html.replace(
-    /\[([^\]]+)\]\((&lt;)?((https?:\/\/)[^\s)]+?)(&gt;)?\)/g,
-    '<a href="$3" class="discord-link" target="_blank" rel="noopener noreferrer">$1</a>',
-  );
-
-  // Auto-link URLs
-  html = html.replace(
-    /(?<![="'])(https?:\/\/[^\s<]+)/g,
-    '<a href="$1" class="discord-link" target="_blank" rel="noopener noreferrer">$1</a>',
   );
 
   // User mentions <@userId> or <@!userId>
@@ -402,7 +434,7 @@ export function parseDiscordMarkdown(
 
   // @everyone and @here
   html = html.replace(
-    /@(everyone|here)/g,
+    /(?<![\w.])@(everyone|here)\b/g,
     '<span class="discord-mention discord-mention-everyone">@$1</span>',
   );
 
@@ -521,10 +553,15 @@ export function getAvatarUrl(userId: string, avatarHash?: string | null, discrim
     const ext = avatarHash.startsWith("a_") ? "gif" : "webp";
     return `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.${ext}?size=128`;
   }
-  // Default avatar based on user ID or discriminator
-  const index = discriminator
-    ? parseInt(discriminator) % 5
-    : (BigInt(userId) >> BigInt(22)) % BigInt(6);
+  // Default avatar: legacy accounts use the discriminator, accounts on the new
+  // username system (discriminator "0" or absent) use the user ID
+  const legacy = discriminator ? parseInt(discriminator, 10) : 0;
+  let index: number | bigint = 0;
+  if (legacy > 0) {
+    index = legacy % 5;
+  } else if (/^\d+$/.test(userId)) {
+    index = (BigInt(userId) >> BigInt(22)) % BigInt(6);
+  }
   return `https://cdn.discordapp.com/embed/avatars/${index}.png`;
 }
 

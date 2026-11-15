@@ -138,7 +138,7 @@ export function generateTranscriptHtml(
 
   // JSON export
   const jsonBlock = opts.includeJson
-    ? `<script type="application/json" id="discord-transcript-json">${JSON.stringify(data).replace(/<\//g, "<\\/")}</script>`
+    ? `<script type="application/json" id="discord-transcript-json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`
     : "";
 
   const html = `<!DOCTYPE html>
@@ -216,7 +216,7 @@ if(tog){var embed=tog.closest('.discord-embed');if(embed)embed.classList.toggle(
     parts.push(`document.addEventListener('click',function(e){
 var btn=e.target.closest('.discord-copy-btn');
 if(btn){var msg=btn.closest('.discord-message');var text=msg.querySelector('.discord-message-text');
-if(text){navigator.clipboard.writeText(text.textContent||'').then(function(){btn.textContent='\u2713';setTimeout(function(){btn.textContent='\u2398'},1500)})}}
+if(text&&!btn.dataset.busy){var icon=btn.innerHTML;navigator.clipboard.writeText(text.textContent||'').then(function(){btn.dataset.busy='1';btn.textContent='\u2713';setTimeout(function(){btn.innerHTML=icon;delete btn.dataset.busy},1500)})}}
 });`);
   }
 
@@ -896,7 +896,7 @@ function renderSingleComponent(
 
     // V2: Section (9)
     case 9:
-      return renderSection(c, ctx);
+      return renderSection(c, ctx, customRenderers);
 
     // V2: TextDisplay (10)
     case 10:
@@ -920,7 +920,7 @@ function renderSingleComponent(
 
     // V2: Container (17)
     case 17:
-      return renderContainer(c, ctx);
+      return renderContainer(c, ctx, customRenderers);
 
     // V2: Label (18)
     case 18:
@@ -963,19 +963,21 @@ function renderButton(c: DiscordComponent): string {
 function renderContainer(
   c: DiscordComponent,
   ctx?: { roles?: Record<string, DiscordRole>; channels?: Record<string, { id: string; name: string }>; mentions?: Array<{ id: string; username: string }> },
+  customRenderers?: Record<number, (component: DiscordComponent) => string>,
 ): string {
   const accentStyle = c.accentColor ? ` style="border-left: 3px solid ${colorIntToHex(c.accentColor)}"` : "";
   const spoilerClass = c.spoiler ? " discord-v2-spoiler" : "";
   const spoilerOverlay = c.spoiler ? `<div class="discord-spoiler-overlay"><span>Spoiler</span></div>` : "";
-  const children = (c.components ?? []).map((child) => renderSingleComponent(child, ctx)).join("");
+  const children = renderComponents(c.components ?? [], ctx, customRenderers);
   return `<div class="discord-v2-container${spoilerClass}"${accentStyle}>${spoilerOverlay}${children}</div>`;
 }
 
 function renderSection(
   c: DiscordComponent,
   ctx?: { roles?: Record<string, DiscordRole>; channels?: Record<string, { id: string; name: string }>; mentions?: Array<{ id: string; username: string }> },
+  customRenderers?: Record<number, (component: DiscordComponent) => string>,
 ): string {
-  const textParts = (c.components ?? []).map((child) => renderSingleComponent(child, ctx)).join("");
+  const textParts = renderComponents(c.components ?? [], ctx, customRenderers);
   const accessory = c.accessory?.media?.url
     ? `<div class="discord-v2-section-accessory"><img src="${esc(resolveMedia(c.accessory.media.url))}" alt="${esc(c.accessory.description ?? "")}" class="discord-v2-thumbnail-img" loading="lazy" /></div>`
     : "";
@@ -1258,7 +1260,9 @@ function groupMessages(messages: DiscordMessage[]): DiscordMessage[][] {
       (msg.type === 0 || msg.type === 19) && (prev.type === 0 || prev.type === 19);
     const noReply = !msg.referencedMessage && !msg.messageReference;
 
-    if (sameAuthor && withinTimeout && isRegular && noReply) {
+    const sameDay = isSameDay(prev.timestamp, msg.timestamp);
+
+    if (sameAuthor && withinTimeout && isRegular && noReply && sameDay) {
       current.push(msg);
     } else {
       groups.push(current);

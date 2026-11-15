@@ -90,6 +90,11 @@ const data: TranscriptData = {
     // Links
     msg("Auto-linked: https://example.com and http://example.org/path?q=1&b=2"),
     msg("[Masked link](https://example.com)"),
+    // Link edge cases: formatting characters inside URLs, suppressed embeds, trailing punctuation
+    msg("URL with formatting chars: https://example.com/a__b__c/x*y*z/~~q~~ stays intact"),
+    msg("Suppressed embed: <https://example.com/no-embed> and a sentence ending in a link https://example.com/page."),
+    msg("Parens: (https://en.wikipedia.org/wiki/Foo_(bar)) and [https://shown.example](https://target.example)"),
+    msg("Not italic: 5 * 3 = 15 and 2 * 2 = 4. Not a mention: me@here.com"),
 
     // @everyone and @here
     msg("Hey @everyone, important announcement! Also @here for those online."),
