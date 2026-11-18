@@ -143,9 +143,10 @@ Check the exported types (`TranscriptData`, `DiscordMessage`, etc.) for the full
 
 ## What's Supported
 
-- Text formatting (bold, italic, underline, strikethrough, spoilers, code blocks, headers, bullet and numbered lists with nesting, subtext, block quotes)
+- Text formatting (bold, italic, underline, strikethrough, spoilers, code blocks, headers, bullet and numbered lists with nesting, subtext, block quotes, backslash escapes)
 - User/role/channel mentions with proper colors and names
-- Custom and unicode emojis
+- Custom and unicode emojis, enlarged in emoji-only messages
+- Slash command mentions
 - Discord timestamps (all format types)
 - Embeds with fields, images, thumbnails, footers, authors
 - GIF embeds (Tenor, Giphy) rendered as inline video
@@ -157,7 +158,7 @@ Check the exported types (`TranscriptData`, `DiscordMessage`, etc.) for the full
 - Stickers
 - Buttons and select menus
 - Components V2 (containers, sections, text displays, media galleries, separators, files, thumbnails)
-- System messages (joins, boosts, pins, etc.)
+- System messages (joins, boosts, pins, threads, poll results, security actions, etc.)
 - Message grouping and date separators
 - Bot and webhook badges
 - Message search, jump-to-date navigation, user statistics

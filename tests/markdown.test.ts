@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { parseInlinePreview, isEmojiOnly } from "../src/lib/markdown.js";
 import {
   parseDiscordMarkdown as md,
   getAvatarUrl,
@@ -118,6 +119,76 @@ describe("block elements", () => {
 
   test("newlines become line breaks", () => {
     expect(md("a\nb")).toBe("a<br />b");
+  });
+});
+
+describe("spacing and quoting", () => {
+  test("no blank line after block elements", () => {
+    expect(md("# Title\nbody")).toBe('<h1 class="discord-header">Title</h1>body');
+    expect(md("- a\nafter")).toBe('<ul class="discord-list"><li class="discord-list-item">a</li></ul>after');
+    expect(md("```\ncode\n```\nafter")).toBe('<pre class="discord-code-block"><code>code\n</code></pre>after');
+    expect(md("-# small\nafter")).toBe('<small class="discord-subtext">small</small>after');
+  });
+
+  test("consecutive quote lines form one quote", () => {
+    expect(md("> one\n> two\nafter")).toBe('<blockquote class="discord-blockquote">one<br />two</blockquote>after');
+  });
+
+  test("a quote needs a space after >", () => {
+    expect(md(">nope")).toBe("&gt;nope");
+  });
+
+  test("bold, underline, strikethrough and spoilers can span lines", () => {
+    expect(md("**a\nb**")).toBe("<strong>a<br />b</strong>");
+    expect(md("||a\nb||")).toContain('<span class="discord-spoiler" data-spoiler="true">a<br />b</span>');
+  });
+});
+
+describe("escapes and command mentions", () => {
+  test("backslash escapes render the character literally", () => {
+    expect(md("\\*not italic\\*")).toBe("*not italic*");
+    expect(md("\\_x\\_ \\~~y\\~~ \\||z\\||")).toBe("_x_ ~~y~~ ||z||");
+    expect(md("\\# not a heading")).toBe("# not a heading");
+    expect(md("\\<@123>")).toBe("&lt;@123&gt;");
+  });
+
+  test("backslashes inside code are left alone", () => {
+    expect(md("`\\*x\\*`")).toBe('<code class="discord-inline-code">\\*x\\*</code>');
+  });
+
+  test("slash command mentions", () => {
+    expect(md("</deploy:123>")).toBe('<span class="discord-mention discord-command-mention">/deploy</span>');
+    expect(md("</config set:123>")).toContain(">/config set</span>");
+  });
+});
+
+describe("reply previews", () => {
+  test("inline formatting and mentions, but no blocks, breaks or links", () => {
+    const out = parseInlinePreview("# Hey <@5>\n> look **here** https://example.com", undefined, undefined, [{ id: "5", username: "kai" }]);
+    expect(out).toContain("@kai");
+    expect(out).toContain("<strong>here</strong>");
+    expect(out).not.toMatch(/<(h1|blockquote|br|a)\b/);
+    expect(out).toContain("https://example.com");
+  });
+
+  test("HTML stays escaped", () => {
+    expect(parseInlinePreview("<script>x</script>")).not.toContain("<script");
+  });
+});
+
+describe("emoji-only detection", () => {
+  test("only emoji", () => {
+    expect(isEmojiOnly("😀")).toBe(true);
+    expect(isEmojiOnly("😀 🎉👍🏽")).toBe(true);
+    expect(isEmojiOnly("<:wave:1> <a:spin:2>")).toBe(true);
+    expect(isEmojiOnly("🇩🇪👨‍👩‍👧")).toBe(true);
+  });
+
+  test("text, digits, or more than 30 emoji are not jumbo", () => {
+    expect(isEmojiOnly("hi 😀")).toBe(false);
+    expect(isEmojiOnly("123")).toBe(false);
+    expect(isEmojiOnly("")).toBe(false);
+    expect(isEmojiOnly("😀".repeat(31))).toBe(false);
   });
 });
 

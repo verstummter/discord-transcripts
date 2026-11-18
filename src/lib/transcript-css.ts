@@ -467,6 +467,7 @@ export const TRANSCRIPT_CSS = `
 
 .discord-message-edited {
   font-size: 0.625rem;
+  white-space: nowrap;
   color: var(--dc-text-muted);
   user-select: none;
   cursor: default;
@@ -772,6 +773,35 @@ ol.discord-list > .discord-list-item,
   vertical-align: -0.4em;
   object-fit: contain;
   display: inline;
+}
+
+/* Emoji-only messages are shown large, as in Discord */
+.discord-jumbo { font-size: 3rem; line-height: 3.25rem; }
+.discord-jumbo .discord-custom-emoji { width: 48px; height: 48px; vertical-align: bottom; }
+.discord-jumbo .discord-message-edited { vertical-align: bottom; }
+
+.discord-command-mention { white-space: nowrap; }
+
+.discord-reply-content .discord-custom-emoji { width: 16px; height: 16px; vertical-align: -0.2em; }
+.discord-reply-content code { font-size: 0.8125rem; }
+
+.discord-embed-video-external a { position: relative; display: inline-block; }
+.discord-embed-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 4px;
+  font-size: 22px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  pointer-events: none;
 }
 
 .discord-embeds {
@@ -2065,15 +2095,28 @@ ol.discord-list > .discord-list-item,
 
 .discord-copy-btn {
   display: none;
-  margin-left: 8px;
+  position: absolute;
+  top: -8px;
+  right: 16px;
+  z-index: 2;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  padding: 0;
   cursor: pointer;
-  color: var(--dc-text-muted);
-  opacity: 0.6;
-  transition: opacity 0.15s;
-  vertical-align: middle;
+  color: var(--dc-text-header-secondary);
+  background: var(--dc-bg-primary);
+  border: 1px solid var(--dc-border-subtle);
+  border-radius: 6px;
+  box-shadow: var(--dc-shadow-low);
+  font: inherit;
+  font-size: 14px;
 }
-.discord-copy-btn:hover { opacity: 1; }
-.discord-message:hover .discord-copy-btn { display: inline; }
+.discord-copy-btn:hover { color: var(--dc-text-header); background: var(--dc-bg-secondary); }
+.discord-copy-btn:focus-visible { display: flex; outline: 2px solid var(--dc-accent-primary); outline-offset: 1px; }
+.discord-message:hover > .discord-copy-btn { display: flex; }
+.discord-message-grouped > .discord-copy-btn { top: -14px; }
 
 /* ─── Collapsible Embeds ─── */
 

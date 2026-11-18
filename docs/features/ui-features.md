@@ -97,7 +97,7 @@ All stats are calculated from the messages in the transcript.
 
 ## Copy Message Button
 
-Hover over any message and a copy icon shows up. Click it to copy the message text.
+Hover over any message with text and a copy button shows up. Click it to copy the message text.
 
 **Option:** `enableCopyButton: true`
 
@@ -107,8 +107,8 @@ const html = generateTranscriptHtml(data, {
 });
 ```
 
-- Icon shows up in the top-right corner on hover
-- Copies plain text only (not the HTML/markdown)
+- Appears in the top-right corner on hover, on every message including grouped ones, and can be reached with the keyboard
+- Copies plain text only (not the HTML/markdown), without the "(edited)" marker
 - Quick visual feedback when copied
 
 ---

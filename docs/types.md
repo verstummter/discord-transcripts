@@ -93,25 +93,46 @@ interface DiscordMessage {
 
 ### Message Types
 
+Use the `DiscordMessageType` enum rather than raw numbers. System message types are rendered as a one-line notice; any other type renders as a normal message.
+
 | Value | Name | Description |
 |-------|------|-------------|
 | `0` | Default | Regular message |
-| `7` | UserJoin | Member join system message |
-| `8` | PremiumGuildSubscription | Boost |
-| `9` | PremiumGuildSubscriptionTier1 | Boost tier 1 |
-| `10` | PremiumGuildSubscriptionTier2 | Boost tier 2 |
-| `11` | PremiumGuildSubscriptionTier3 | Boost tier 3 |
-| `18` | GuildMemberJoin | Join via discovery |
+| `1` | RecipientAdd | Recipient added to a group DM |
+| `2` | RecipientRemove | Recipient removed from a group DM |
+| `3` | Call | Call started |
+| `4` | ChannelNameChange | Channel renamed |
+| `5` | ChannelIconChange | Channel icon changed |
+| `6` | ChannelPinnedMessage | Message pinned |
+| `7` | UserJoin | Member joined |
+| `8` | GuildBoost | Server boosted |
+| `9` | GuildBoostTier1 | Boost reached level 1 |
+| `10` | GuildBoostTier2 | Boost reached level 2 |
+| `11` | GuildBoostTier3 | Boost reached level 3 |
+| `12` | ChannelFollowAdd | Channel follow added |
+| `14` | GuildDiscoveryDisqualified | Removed from Server Discovery |
+| `15` | GuildDiscoveryRequalified | Relisted in Server Discovery |
+| `16` | GuildDiscoveryGracePeriodInitialWarning | Discovery activity warning (1 week) |
+| `17` | GuildDiscoveryGracePeriodFinalWarning | Discovery activity warning (3 weeks) |
+| `18` | ThreadCreated | Thread started |
 | `19` | Reply | Reply to a message |
 | `20` | ChatInputCommand | Slash command response |
-| `21` | ThreadStarterMessage | Thread start |
-| `23` | ContextMenuCommand | Context menu response |
-| `24` | AutoModeration | AutoMod system message |
-| `25` | RoleSubscriptionPurchase | Role sub |
-| `27` | StageStart | Stage starts |
-| `28` | StageEnd | Stage ends |
-| `29` | StageSpeaker | Stage speaker |
-| `31` | StageTopic | Stage topic change |
+| `21` | ThreadStarterMessage | First message of a thread |
+| `22` | GuildInviteReminder | Invite reminder |
+| `23` | ContextMenuCommand | Context menu command response |
+| `24` | AutoModerationAction | AutoMod blocked a message |
+| `25` | RoleSubscriptionPurchase | Role subscription purchase |
+| `26` | InteractionPremiumUpsell | Premium upsell |
+| `27` | StageStart | Stage event started |
+| `28` | StageEnd | Stage event ended |
+| `29` | StageSpeaker | New Stage speaker |
+| `31` | StageTopic | Stage topic changed |
+| `32` | GuildApplicationPremiumSubscription | App premium subscription |
+| `36` | GuildIncidentAlertModeEnabled | Security actions enabled |
+| `37` | GuildIncidentAlertModeDisabled | Security actions disabled |
+| `38` | GuildIncidentReportRaid | Raid reported |
+| `39` | GuildIncidentReportFalseAlarm | False alarm reported |
+| `46` | PollResult | Poll closed, with the result |
 
 ---
 

@@ -287,6 +287,91 @@ describe("rich content", () => {
   });
 });
 
+describe("message details", () => {
+  test("(edited) follows the text, also on grouped messages", () => {
+    const out = body(render(transcript([
+      message("first", { timestamp: "2026-03-15T14:00:00.000Z" }),
+      message("second", { timestamp: "2026-03-15T14:01:00.000Z", editedTimestamp: "2026-03-15T14:05:00.000Z" }),
+    ])));
+    expect(out).toMatch(/second <span class="discord-message-edited"[^>]*>\(edited\)<\/span><\/div>/);
+    expect(count(out, "(edited)")).toBe(1);
+  });
+
+  test("an edited message without text keeps the marker in its header", () => {
+    const out = body(render(transcript([message("", { editedTimestamp: "2026-03-15T14:05:00.000Z", embeds: [{ title: "T" }] })])));
+    expect(out).toMatch(/discord-message-header">[\s\S]*\(edited\)[\s\S]*<\/div>/);
+  });
+
+  test("copy button on every message with text", () => {
+    const out = body(render(transcript([
+      message("a", { timestamp: "2026-03-15T14:00:00.000Z" }),
+      message("b", { timestamp: "2026-03-15T14:01:00.000Z" }),
+      message("", { timestamp: "2026-03-15T14:02:00.000Z", embeds: [{ title: "no text" }] }),
+    ]), { enableCopyButton: true }));
+    expect(count(out, 'class="discord-copy-btn"')).toBe(2);
+  });
+
+  test("emoji-only messages get the jumbo class", () => {
+    expect(body(render(transcript([message("😀🎉")])))).toContain('class="discord-message-text discord-jumbo"');
+    expect(body(render(transcript([message("hi 😀")])))).not.toContain("discord-jumbo");
+  });
+
+  test("reply previews render mentions instead of raw markup", () => {
+    const original = message("hey <@" + bob.id + "> **look**");
+    const out = body(render(transcript([original, message("reply", { author: bob, referencedMessage: original })])));
+    expect(out).toContain("@bob");
+    expect(out).toContain("<strong>look</strong>");
+    expect(out).not.toContain("&lt;@");
+  });
+
+  test("system messages use the display name", () => {
+    const out = body(render(transcript([message("", { type: DiscordMessageType.UserJoin })])));
+    expect(out).toContain('<span class="discord-system-message-author">Alice</span> joined the server!');
+  });
+
+  test("thread created and poll result system messages", () => {
+    const out = body(render(transcript([
+      message("Plans", { type: DiscordMessageType.ThreadCreated }),
+      message("", {
+        type: DiscordMessageType.PollResult,
+        embeds: [{ type: "poll_result", fields: [
+          { name: "poll_question_text", value: "Snack?" },
+          { name: "victor_answer_text", value: "Popcorn" },
+          { name: "victor_answer_votes", value: "7" },
+          { name: "total_votes", value: "12" },
+        ] }],
+      }),
+    ])));
+    expect(out).toContain("started a thread: <strong>Plans</strong>");
+    expect(out).toContain("poll <strong>Snack?</strong> has closed. Winner: <strong>Popcorn</strong> (7 of 12 votes)");
+  });
+
+  test("Lottie stickers get a placeholder instead of a broken image", () => {
+    const out = body(render(transcript([message("", { stickers: [{ id: "1", name: "Wave", formatType: 3, url: "https://media.discordapp.net/stickers/1.json" }] })])));
+    expect(out).not.toContain("1.json");
+    expect(out).toContain("discord-sticker-placeholder");
+  });
+
+  test("YouTube-style video embeds link to the page instead of an unplayable <video>", () => {
+    const out = body(render(transcript([message("", { embeds: [{
+      type: "video", url: "https://www.youtube.com/watch?v=abc", title: "Video",
+      video: { url: "https://www.youtube.com/embed/abc" },
+      thumbnail: { url: "https://i.ytimg.com/vi/abc/hq.jpg" },
+    }] })])));
+    expect(out).not.toContain("<video");
+    expect(out).toContain('<a href="https://www.youtube.com/watch?v=abc"');
+    expect(out).toContain("i.ytimg.com/vi/abc/hq.jpg");
+  });
+
+  test("direct video files still play inline, preferring Discord's proxy", () => {
+    const out = body(render(transcript([message("", { embeds: [{
+      type: "video", url: "https://example.com/clip.mp4",
+      video: { url: "https://example.com/clip.mp4", proxyUrl: "https://media.discordapp.net/clip.mp4" },
+    }] })])));
+    expect(out).toContain('<source src="https://media.discordapp.net/clip.mp4"');
+  });
+});
+
 describe("page features", () => {
   test("statistics panel", () => {
     const out = body(render(transcript([message("a"), message("b"), message("c", { author: bob })]), { showUserStats: true, timeZone: "UTC" }));

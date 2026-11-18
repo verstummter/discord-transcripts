@@ -10,6 +10,7 @@ import type {
   DiscordMessageType,
   DiscordPoll,
   DiscordMessageSnapshot,
+  DiscordSticker,
 } from "../types/discord.js";
 import {
   parseDiscordMarkdown,
@@ -25,6 +26,8 @@ import {
   formatNumber,
   dayKey,
   hourOfDay,
+  parseInlinePreview,
+  isEmojiOnly,
 } from "./markdown.js";
 import { TRANSCRIPT_CSS } from "./transcript-css.js";
 
@@ -252,8 +255,9 @@ if(tog){var embed=tog.closest('.discord-embed');if(embed)embed.classList.toggle(
   if (opts.enableCopyButton) {
     parts.push(`document.addEventListener('click',function(e){
 var btn=e.target.closest('.discord-copy-btn');
-if(btn){var msg=btn.closest('.discord-message');var text=msg.querySelector('.discord-message-text');
-if(text&&!btn.dataset.busy){var icon=btn.innerHTML;navigator.clipboard.writeText(text.textContent||'').then(function(){btn.dataset.busy='1';btn.textContent='\u2713';setTimeout(function(){btn.innerHTML=icon;delete btn.dataset.busy},1500)})}}
+if(btn){var msg=btn.closest('.discord-message');var text=msg.querySelector(':scope > .discord-message-body .discord-message-text');
+if(text&&!btn.dataset.busy){var icon=btn.innerHTML;var c=text.cloneNode(true);c.querySelectorAll('.discord-message-edited').forEach(function(x){x.remove()});
+navigator.clipboard.writeText((c.textContent||'').trim()).then(function(){btn.dataset.busy='1';btn.textContent='\u2713';setTimeout(function(){btn.innerHTML=icon;delete btn.dataset.busy},1500)})}}
 });`);
   }
 
@@ -285,6 +289,10 @@ var txt='';m.querySelectorAll(SEL).forEach(function(el){txt+=' '+(el.textContent
 if(txt.toLowerCase().indexOf(q)!==-1){m.classList.remove('discord-search-hidden');m.classList.add('discord-search-highlight');n++}
 else{m.classList.add('discord-search-hidden');m.classList.remove('discord-search-highlight')}
 });
+document.querySelectorAll('.discord-messages > .discord-date-separator').forEach(function(sep){
+var any=false,el=sep.nextElementSibling;
+while(el&&!el.classList.contains('discord-date-separator')){if(el.classList.contains('discord-message')&&!el.classList.contains('discord-search-hidden')){any=true;break}el=el.nextElementSibling}
+sep.classList.toggle('discord-search-hidden',!!q&&!any)});
 cnt.textContent=q?(n+(n===1?' result':' results')):'';
 if(bar)bar.classList.toggle('has-query',!!q);
 if(empty)empty.style.display=(q&&n===0)?'block':'none';
@@ -307,7 +315,7 @@ if(!list||!tog)return;
 var seps=document.querySelectorAll('.discord-date-separator');
 seps.forEach(function(s){var txt=s.querySelector('.discord-date-separator-text');
 if(txt){var a=document.createElement('div');a.className='discord-date-nav-item';a.textContent=txt.textContent;
-a.addEventListener('click',function(){close();s.scrollIntoView({behavior:'smooth',block:'start'})});list.appendChild(a)}
+a.addEventListener('click',function(){close();document.dispatchEvent(new CustomEvent('discord-reveal',{detail:s}));s.scrollIntoView({behavior:'smooth',block:'start'})});list.appendChild(a)}
 });
 function close(){list.classList.remove('open');tog.classList.remove('open');tog.setAttribute('aria-expanded','false')}
 tog.addEventListener('click',function(){var o=list.classList.toggle('open');tog.classList.toggle('open',o);tog.setAttribute('aria-expanded',o?'true':'false')});
@@ -343,8 +351,14 @@ function render(){nav.innerHTML='';
 var prev=document.createElement('button');prev.className='discord-page-btn';prev.textContent='\u25C0 Prev';prev.disabled=page===0;prev.onclick=function(){go(-1)};nav.appendChild(prev);
 var sp=document.createElement('span');sp.className='discord-page-info';sp.textContent='Page '+(page+1)+' of '+total;nav.appendChild(sp);
 var next=document.createElement('button');next.className='discord-page-btn';next.textContent='Next \u25B6';next.disabled=page>=total-1;next.onclick=function(){go(1)};nav.appendChild(next)}
+function reveal(el){if(!el||searching())return;
+for(var i=0;i<msgs.length;i++){if(msgs[i]===el||msgs[i].contains(el)){var p=Math.floor(i/pp);if(p!==page){page=p;show()}return}}}
+function fromHash(){if(location.hash.indexOf('#msg-')!==0)return;var el=document.getElementById(location.hash.slice(1));if(el){reveal(el);el.scrollIntoView({block:'start'})}}
 document.addEventListener('discord-search',show);
-show()})();`;
+document.addEventListener('discord-reveal',function(e){reveal(e.detail)});
+document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="#msg-"]');if(a)reveal(document.getElementById(a.getAttribute('href').slice(1)))},true);
+window.addEventListener('hashchange',fromHash);
+show();fromHash()})();`;
 }
 
 // ─── Transcript Body ───
@@ -522,12 +536,15 @@ function renderMessage(
   data: TranscriptData,
   isGroupStart: boolean,
 ): string {
-  const systemText = getSystemMessageText(message);
-  if (systemText) {
+  const system = getSystemMessageText(message);
+  if (system) {
+    const author = system.withAuthor
+      ? `<span class="discord-system-message-author">${esc(message.author.globalName || message.author.username)}</span> `
+      : "";
     return `<div class="discord-message discord-system-message" id="msg-${esc(message.id)}">
 <div class="discord-system-message-icon">${ICONS.arrowRight}</div>
 <div class="discord-system-message-content">
-<span class="discord-system-message-author">${esc(message.author.username)}</span> ${systemText}
+${author}${system.html}
 <span class="discord-message-timestamp">${esc(formatMessageTimestamp(message.timestamp, opts.dateFormat))}</span>
 </div>
 </div>`;
@@ -537,10 +554,18 @@ function renderMessage(
   const userColor = getUserColor(data.memberRoles?.[message.author.id], data.roles);
   const pinnedClass = message.pinned ? " discord-message-pinned" : "";
   const groupedClass = !isGroupStart ? " discord-message-grouped" : "";
+  const edited = message.editedTimestamp
+    ? `<span class="discord-message-edited" title="Edited: ${esc(formatDate(new Date(message.editedTimestamp)))}">(edited)</span>`
+    : "";
 
   parts.push(
     `<div class="discord-message${pinnedClass}${groupedClass}" id="msg-${esc(message.id)}">`,
   );
+
+  // Hover button on every message that has text, not only the first of a group
+  if (opts.enableCopyButton && message.content) {
+    parts.push(`<button type="button" class="discord-copy-btn" title="Copy message" aria-label="Copy message">${ICONS.copy}</button>`);
+  }
 
   // Slash command / interaction context
   if (message.interaction && isGroupStart) {
@@ -564,8 +589,8 @@ ${intAvatar}
         ? `<img src="${esc(resolveMedia(getAvatarUrl(ref.author.id, ref.author.avatar, ref.author.discriminator)))}" alt="" class="discord-reply-avatar" width="16" height="16" loading="lazy" />`
         : "";
     const refContent = ref.content
-      ? esc(truncate(ref.content, 200))
-      : "Click to see attachment";
+      ? parseInlinePreview(ref.content, data.roles, data.channels, (data as any)._globalMentions, _mediaMap)
+      : `<em>Click to see attachment</em>`;
     // Link to the original message when it is part of this transcript
     const canJump = !!ref.id && (data as any)._messageIds?.has(ref.id);
     const jumpOpen = canJump ? `<a class="discord-reply-link" href="#msg-${esc(ref.id)}" title="Jump to message">` : "";
@@ -623,17 +648,12 @@ ${jumpOpen}<span class="discord-reply-username">${esc(ref.author.globalName || r
       opts.showTimestamps !== false
         ? `<span class="discord-message-timestamp">${esc(formatMessageTimestamp(message.timestamp, opts.dateFormat))}</span>`
         : "";
-    const edited = message.editedTimestamp
-      ? `<span class="discord-message-edited" title="Edited: ${esc(formatDate(new Date(message.editedTimestamp)))}">(edited)</span>`
-      : "";
-
-    const copyBtn = opts.enableCopyButton
-      ? `<span class="discord-copy-btn" title="Copy message">${ICONS.copy}</span>`
-      : "";
+    // Without text the (edited) marker has nowhere else to go
+    const headerEdited = !message.content ? edited : "";
 
     parts.push(`<div class="discord-message-header">
 <span class="discord-message-username"${nameStyle}>${esc(displayName)}</span>
-${botBadge}${pinIcon}${timestamp}${edited}${copyBtn}
+${botBadge}${pinIcon}${timestamp}${headerEdited}
 </div>`);
   }
 
@@ -649,7 +669,10 @@ ${botBadge}${pinIcon}${timestamp}${edited}${copyBtn}
       allMentions,
       _mediaMap,
     );
-    parts.push(`<div class="discord-message-text">${parsedContent}</div>`);
+    // Like Discord, (edited) follows the text, and emoji-only messages are shown large
+    const jumboClass = isEmojiOnly(message.content) ? " discord-jumbo" : "";
+    const editedInline = edited ? ` ${edited}` : "";
+    parts.push(`<div class="discord-message-text${jumboClass}">${parsedContent}${editedInline}</div>`);
   }
 
   // Forwarded messages
@@ -661,19 +684,7 @@ ${botBadge}${pinIcon}${timestamp}${edited}${copyBtn}
 
   // Stickers
   if (message.stickers?.length) {
-    parts.push(`<div class="discord-stickers">`);
-    for (const sticker of message.stickers) {
-      if (sticker.url) {
-        parts.push(
-          `<div class="discord-sticker"><img src="${esc(resolveMedia(sticker.url))}" alt="${esc(sticker.name)}" class="discord-sticker-img" width="160" height="160" loading="lazy" /></div>`,
-        );
-      } else {
-        parts.push(
-          `<div class="discord-sticker"><div class="discord-sticker-placeholder">${esc(sticker.name)}</div></div>`,
-        );
-      }
-    }
-    parts.push(`</div>`);
+    parts.push(`<div class="discord-stickers">${message.stickers.map(renderSticker).join("")}</div>`);
   }
 
   // Voice message
@@ -747,6 +758,16 @@ ${threadCount}
   return parts.join("\n");
 }
 
+// ─── Sticker ───
+
+/** Lottie stickers (format 3) are JSON animations, so they get a labelled placeholder */
+function renderSticker(sticker: DiscordSticker): string {
+  if (sticker.url && sticker.formatType !== 3) {
+    return `<div class="discord-sticker"><img src="${esc(resolveMedia(sticker.url))}" alt="${esc(sticker.name)}" class="discord-sticker-img" width="160" height="160" loading="lazy" /></div>`;
+  }
+  return `<div class="discord-sticker"><div class="discord-sticker-placeholder" title="Sticker">${esc(sticker.name)}</div></div>`;
+}
+
 // ─── Forwarded Message ───
 
 function renderForwarded(
@@ -764,13 +785,7 @@ function renderForwarded(
   }
 
   if (snapshot.stickers?.length) {
-    parts.push(`<div class="discord-stickers">`);
-    for (const sticker of snapshot.stickers) {
-      parts.push(sticker.url
-        ? `<div class="discord-sticker"><img src="${esc(resolveMedia(sticker.url))}" alt="${esc(sticker.name)}" class="discord-sticker-img" width="160" height="160" loading="lazy" /></div>`
-        : `<div class="discord-sticker"><div class="discord-sticker-placeholder">${esc(sticker.name)}</div></div>`);
-    }
-    parts.push(`</div>`);
+    parts.push(`<div class="discord-stickers">${snapshot.stickers.map(renderSticker).join("")}</div>`);
   }
 
   if (opts.showAttachments !== false && snapshot.attachments?.length) {
@@ -876,18 +891,29 @@ function renderEmbed(embed: DiscordEmbed, ctx?: { roles?: Record<string, Discord
     );
   }
 
+  // Discord proxies direct video files; players such as YouTube only offer an embed page
+  const videoSrc = embed.video?.proxyUrl
+    || (embed.video?.url && /\.(?:mp4|webm|mov|m4v|ogv)(?:[?#]|$)/i.test(embed.video.url) ? embed.video.url : undefined);
+  const externalVideo = !!embed.video?.url && !videoSrc;
+
   if (embed.thumbnail && !embed.video?.url) {
     parts.push(
       `<div class="discord-embed-thumbnail"><img src="${esc(resolveMedia(embed.thumbnail.url))}" alt="" class="discord-embed-thumbnail-img" loading="lazy" /></div>`,
     );
   }
 
-  if (embed.video?.url) {
-    const vMaxW = embed.video.width ? Math.min(embed.video.width, 400) : 400;
+  if (videoSrc) {
+    const vMaxW = embed.video!.width ? Math.min(embed.video!.width, 400) : 400;
     const posterAttr = embed.thumbnail?.url ? ` poster="${esc(resolveMedia(embed.thumbnail.url))}"` : "";
     parts.push(
-      `<div class="discord-embed-video"><video controls preload="metadata" class="discord-embed-image-img" style="max-width:${vMaxW}px;border-radius:4px"${posterAttr}><source src="${esc(resolveMedia(embed.video.url))}" type="video/mp4" /></video></div>`,
+      `<div class="discord-embed-video"><video controls preload="metadata" class="discord-embed-image-img" style="max-width:${vMaxW}px;border-radius:4px"${posterAttr}><source src="${esc(resolveMedia(videoSrc))}" type="video/mp4" /></video></div>`,
     );
+  } else if (externalVideo && embed.thumbnail?.url) {
+    const href = sanitizeUrl(embed.url || embed.video?.url || "");
+    const img = `<img src="${esc(resolveMedia(embed.thumbnail.url))}" alt="" class="discord-embed-image-img" loading="lazy" style="max-width:400px" /><span class="discord-embed-play" aria-hidden="true">\u25B6</span>`;
+    parts.push(href
+      ? `<div class="discord-embed-video discord-embed-video-external"><a href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="Play">${img}</a></div>`
+      : `<div class="discord-embed-video discord-embed-video-external">${img}</div>`);
   }
 
   if (embed.footer) {
@@ -1322,35 +1348,67 @@ function getUserColor(
   return highestRole ? colorIntToHex(highestRole.color) : undefined;
 }
 
-function truncate(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + "\u2026";
+interface SystemMessage {
+  html: string;
+  /** Whether the line starts with the author's name */
+  withAuthor: boolean;
 }
 
-function getSystemMessageText(message: DiscordMessage): string | null {
-  const type = message.type as DiscordMessageType;
-  switch (type) {
-    case 1: return "added a recipient to the group.";
-    case 2: return "removed a recipient from the group.";
-    case 3: return "started a call.";
-    case 4: return `changed the channel name: ${esc(message.content)}`;
-    case 5: return "changed the channel icon.";
-    case 6: return "pinned a message to this channel.";
-    case 7: return "joined the server!";
-    case 8: return "just boosted the server!";
-    case 9: return "just boosted the server! This server has achieved Level 1!";
-    case 10: return "just boosted the server! This server has achieved Level 2!";
-    case 11: return "just boosted the server! This server has achieved Level 3!";
-    case 12: return `has added a channel follow: ${esc(message.content)}`;
-    case 24: return `${ICONS.automod} <span class="discord-automod-label">AutoMod</span> has blocked a message in this channel.`;
-    case 27: return "started a Stage event.";
-    case 28: return "ended the Stage event.";
-    case 29: return "is now a speaker.";
-    case 31: return `changed the Stage topic: ${esc(message.content)}`;
-    default:
-      if (type === 0 || type === 19 || type === 20 || type === 21 || type === 23) return null;
-      return null;
+function getSystemMessageText(message: DiscordMessage): SystemMessage | null {
+  const by = (html: string): SystemMessage => ({ html, withAuthor: true });
+  const plain = (html: string): SystemMessage => ({ html, withAuthor: false });
+  switch (message.type as number) {
+    case 1: return by("added a recipient to the group.");
+    case 2: return by("removed a recipient from the group.");
+    case 3: return by("started a call.");
+    case 4: return by(`changed the channel name: ${esc(message.content)}`);
+    case 5: return by("changed the channel icon.");
+    case 6: return by("pinned a message to this channel.");
+    case 7: return by("joined the server!");
+    case 8: return by("just boosted the server!");
+    case 9: return by("just boosted the server! This server has achieved Level 1!");
+    case 10: return by("just boosted the server! This server has achieved Level 2!");
+    case 11: return by("just boosted the server! This server has achieved Level 3!");
+    case 12: return by(`has added a channel follow: ${esc(message.content)}`);
+    case 14: return plain("This server has been removed from Server Discovery because it no longer passes all the requirements.");
+    case 15: return plain("This server is eligible for Server Discovery again and has been automatically relisted!");
+    case 16: return plain("This server has failed Discovery activity requirements for 1 week.");
+    case 17: return plain("This server has failed Discovery activity requirements for 3 weeks in a row.");
+    case 18: return by(`started a thread: <strong>${esc(message.content)}</strong>`);
+    case 22: return plain("Wondering who to invite? Start by inviting anyone who can help you build the server!");
+    case 24: return by(`${ICONS.automod} <span class="discord-automod-label">AutoMod</span> has blocked a message in this channel.`);
+    case 27: return by("started a Stage event.");
+    case 28: return by("ended the Stage event.");
+    case 29: return by("is now a speaker.");
+    case 31: return by(`changed the Stage topic: ${esc(message.content)}`);
+    case 36: return by("enabled security actions.");
+    case 37: return by("disabled security actions.");
+    case 38: return by("reported a raid in this server.");
+    case 39: return by("reported a false alarm.");
+    case 46: return pollResultText(message);
+    default: return null;
   }
+}
+
+/** Poll result messages carry the outcome as fields of a "poll_result" embed */
+function pollResultText(message: DiscordMessage): SystemMessage {
+  const fields = message.embeds?.find((e) => e.type === "poll_result")?.fields ?? [];
+  const get = (name: string) => fields.find((f) => f.name === name)?.value;
+  const question = get("poll_question_text");
+  const winner = get("victor_answer_text");
+  const votes = get("victor_answer_votes");
+  const total = get("total_votes");
+  let html = question
+    ? `\u2019s poll <strong>${esc(question)}</strong> has closed.`
+    : "\u2019s poll has closed.";
+  if (winner) {
+    html += ` Winner: <strong>${esc(winner)}</strong>`;
+    if (votes && total) html += ` (${esc(votes)} of ${esc(total)} votes)`;
+  } else if (question) {
+    html += " There was no winner.";
+  }
+  const name = esc(message.author.globalName || message.author.username);
+  return { html: `<span class="discord-system-message-author">${name}</span>${html}`, withAuthor: false };
 }
 
 function groupMessages(messages: DiscordMessage[]): DiscordMessage[][] {

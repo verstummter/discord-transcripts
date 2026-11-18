@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] - 2026-11-18
+
+### Added
+
+- Backslash escapes such as `\*not italic\*` render the character literally.
+- Slash command mentions (`</deploy:123>`) render as `/deploy`.
+- Emoji-only messages (up to 30 emoji) are shown enlarged, as in Discord.
+- System messages for thread creation, poll results, security actions, and Server Discovery notices. `DiscordMessageType` gains the matching members.
+- Bold, underline, strikethrough, and spoilers can span several lines.
+
+### Changed
+
+- Reply previews render mentions, emoji, and inline formatting instead of raw markup.
+- "(edited)" follows the message text, as in Discord, and appears on grouped messages too.
+- The copy button is available on every message with text, not only the first of a group, and is a keyboard-reachable button.
+- Searching hides date separators for days with no matches.
+
+### Fixed
+
+- Block elements (quotes, headings, lists, code blocks, subtext) were followed by an extra blank line.
+- Consecutive `>` lines rendered as separate quotes.
+- YouTube and other player embeds rendered an unplayable `<video>`; they now show the thumbnail linking to the video.
+- Lottie stickers rendered as a broken image; they now show a labelled placeholder.
+- In paginated transcripts, jump-to-date, reply links, and `#msg-<id>` links did nothing when the target was on another page.
+- System messages showed the username instead of the display name.
+- `customCss` and `fontFamily` could close the page's `<style>` block with nested input such as `<</style>/style>`, and the filter ran in polynomial time on long input.
+
 ## [1.3.0] - 2026-11-15
 
 ### Added
@@ -85,6 +112,7 @@ The project is now open source.
 
 Versions 1.1.0 through 1.1.4 were published before this changelog was started.
 
+[1.4.0]: https://github.com/verstummter/discord-transcripts/releases/tag/v1.4.0
 [1.3.0]: https://github.com/verstummter/discord-transcripts/releases/tag/v1.3.0
 [1.2.0]: https://github.com/verstummter/discord-transcripts/releases/tag/v1.2.0
 [1.1.5]: https://www.npmjs.com/package/@getoeteter/discord-transcripts/v/1.1.5

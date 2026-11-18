@@ -100,6 +100,41 @@ const data: TranscriptData = {
     msg("Star bullets:\n* One\n* Two\n  * Nested\n    * Deeper"),
     msg("Starts at five:\n5. Five\n6. Six"),
     msg("Regular line\n-# Subtext line with **bold** and a [link](https://example.com)"),
+    // Spacing after block elements, merged quotes, escapes, command mentions
+    msg("> First quoted line\n> second quoted line\nText right after the quote"),
+    msg("# Heading\nText right under the heading\n```js\nconst x = 1;\n```\nText right after the code block"),
+    msg("Escaped: \\*not italic\\*, \\_not italic\\_, \\~~not struck\\~~, \\<@123>"),
+    msg("Run </deploy:1234567890> or </config set:1234567890>"),
+    msg("**Bold that\nspans two lines** and ||a spoiler\nacross lines||"),
+    // Emoji-only messages are shown large
+    msg("<:wave:111111111111111111><:wave:111111111111111111>"),
+    msg("😀🎉👍🏽"),
+    // Edited message grouped under a previous one, with the marker after the text
+    msg("This grouped message was edited", { editedTimestamp: new Date().toISOString() }),
+    // YouTube-style embed: no playable file, so a linked thumbnail is shown
+    msg("https://www.youtube.com/watch?v=dQw4w9WgXcQ", {
+      embeds: [{
+        type: "video",
+        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        title: "Example video",
+        provider: { name: "YouTube", url: "https://www.youtube.com" },
+        thumbnail: { url: "https://cdn.discordapp.com/embed/avatars/3.png", width: 480, height: 360 },
+        video: { url: "https://www.youtube.com/embed/dQw4w9WgXcQ", width: 1280, height: 720 },
+      }],
+    }),
+    // Lottie sticker cannot be drawn as an image
+    msg("", { stickers: [{ id: "1", name: "Wumpus Wave", formatType: 3, url: "https://media.discordapp.net/stickers/1.json" }] }),
+    // System messages added in this version
+    msg("Planning thread", { type: DiscordMessageType.ThreadCreated }),
+    msg("", {
+      type: DiscordMessageType.PollResult,
+      embeds: [{ type: "poll_result", fields: [
+        { name: "poll_question_text", value: "Best snack?" },
+        { name: "victor_answer_text", value: "Popcorn" },
+        { name: "victor_answer_votes", value: "7" },
+        { name: "total_votes", value: "12" },
+      ] }],
+    }),
     // Forwarded message (messageSnapshots)
     msg("", {
       messageReference: { messageId: "999999999999999999", channelId: "888888888888888888" },

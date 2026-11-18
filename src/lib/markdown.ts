@@ -399,7 +399,7 @@ export function parseDiscordMarkdown(
   const linkOpen = (href: string) =>
     `<a href="${href}" class="discord-link" target="_blank" rel="noopener noreferrer">`;
   html = html.replace(
-    /```(\w+\n)?([\s\S]*?)```/g,
+    /```(\w+\n)?([\s\S]*?)```\n?/g,
     (_match, langLine: string | undefined, code: string) => {
       const lang = langLine?.trim();
       // Strip leading newline when there's no language identifier
@@ -419,6 +419,12 @@ export function parseDiscordMarkdown(
       codeTokens.push(`<code class="discord-inline-code">${code}</code>`);
       return `\uE000${i}\uE001`;
     },
+  );
+
+  // Backslash escapes: \* \_ \~ \| \# \> \[ etc. render the character literally
+  html = html.replace(
+    /\\(&lt;|&gt;|[\\*_~|#\-\[\]():@.!])/g,
+    (_match, ch: string) => protect(ch),
   );
 
   // Links are tokenized before any emphasis runs, so characters such as _ * ~ inside
@@ -468,8 +474,8 @@ export function parseDiscordMarkdown(
     '<blockquote class="discord-blockquote">$1</blockquote>',
   );
   html = html.replace(
-    /^&gt; (.+)$/gm,
-    '<blockquote class="discord-blockquote">$1</blockquote>',
+    /^&gt; .*(?:\n&gt; .*)*$/gm,
+    (block) => `<blockquote class="discord-blockquote">${block.split("\n").map((line) => line.slice(5)).join("\n")}</blockquote>`,
   );
 
   // Subtext (-# small muted line)
@@ -480,26 +486,26 @@ export function parseDiscordMarkdown(
 
   // Bold italic (***text***)
   html = html.replace(
-    /\*\*\*(.+?)\*\*\*/g,
+    /\*\*\*([\s\S]+?)\*\*\*/g,
     "<strong><em>$1</em></strong>",
   );
 
   // Bold (**text**)
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/\*\*([\s\S]+?)\*\*/g, "<strong>$1</strong>");
 
   // Underline (__text__) - must come before single-underscore italic
-  html = html.replace(/__(.+?)__/g, "<u>$1</u>");
+  html = html.replace(/__([\s\S]+?)__/g, "<u>$1</u>");
 
   // Italic (*text* or _text_)
   html = html.replace(/\*(?!\s)(.+?)(?<!\s)\*/g, "<em>$1</em>");
   html = html.replace(/(?<!\w)_(.+?)_(?!\w)/g, "<em>$1</em>");
 
   // Strikethrough (~~text~~)
-  html = html.replace(/~~(.+?)~~/g, "<s>$1</s>");
+  html = html.replace(/~~([\s\S]+?)~~/g, "<s>$1</s>");
 
   // Spoilers (||text||)
   html = html.replace(
-    /\|\|(.+?)\|\|/g,
+    /\|\|([\s\S]+?)\|\|/g,
     '<span class="discord-spoiler" data-spoiler="true">$1</span>',
   );
 
@@ -532,6 +538,12 @@ export function parseDiscordMarkdown(
     return `<span class="discord-mention" data-mention-type="channel" data-mention-id="${escapeHtml(channelId)}">#${escapeHtml(name)}</span>`;
   });
 
+  // Slash command mentions </name:id>, including subcommands </name sub:id>
+  html = html.replace(
+    /&lt;\/([\p{L}\p{N}_-]+(?: [\p{L}\p{N}_-]+){0,2}):(\d+)&gt;/gu,
+    (_match, name: string) => `<span class="discord-mention discord-command-mention">/${name}</span>`,
+  );
+
   // @everyone and @here
   html = html.replace(
     /(?<![\w.])@(everyone|here)\b/g,
@@ -559,6 +571,9 @@ export function parseDiscordMarkdown(
     },
   );
 
+  // A block element already ends its line, so the newline after it would add a blank line
+  html = html.replace(/(<\/(?:blockquote|h[1-3]|ul|ol|small)>)\n/g, "$1");
+
   // Line breaks
   html = html.replace(/\n/g, "<br />");
 
@@ -568,6 +583,51 @@ export function parseDiscordMarkdown(
   }
 
   return sanitizeHtml(html, SANITIZE_OPTIONS);
+}
+
+const INLINE_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: ["strong", "em", "u", "s", "code", "span", "img"],
+  allowedAttributes: {
+    span: ["class", "data-*", "style"],
+    code: ["class"],
+    img: ["src", "alt", "class", "width", "height", "loading"],
+  },
+  allowedStyles: SANITIZE_OPTIONS.allowedStyles,
+  allowedSchemesByTag: { img: ["https", "http", "data"] },
+};
+
+/**
+ * One-line rendering for reply previews: mentions, emoji and inline formatting,
+ * without block elements, line breaks or links (the preview is itself a link).
+ */
+export function parseInlinePreview(
+  content: string,
+  roles?: Record<string, DiscordRole>,
+  channels?: Record<string, DiscordChannel>,
+  mentions?: Array<{ id: string; username: string }>,
+  mediaMap?: Map<string, string>,
+): string {
+  if (!content) return "";
+  const flat = content
+    .slice(0, 300)
+    .split("\n")
+    .map((line) => line.replace(/^(?:#{1,3} |-# |>>> |> |\s*(?:[-*]|\d{1,9}\.) )/, ""))
+    .join(" ");
+  return sanitizeHtml(parseDiscordMarkdown(flat, roles, channels, mentions, mediaMap), INLINE_SANITIZE_OPTIONS);
+}
+
+const CUSTOM_EMOJI = /<a?:\w+:\d+>/g;
+const UNICODE_EMOJI = /\p{Extended_Pictographic}(?:\p{Emoji_Modifier}|\uFE0F)*(?:\u200D\p{Extended_Pictographic}(?:\p{Emoji_Modifier}|\uFE0F)*)*|\p{Regional_Indicator}{2}/gu;
+
+/** True when a message is only emoji (at most 30), which Discord shows enlarged */
+export function isEmojiOnly(content: string): boolean {
+  if (!content) return false;
+  const custom = content.match(CUSTOM_EMOJI)?.length ?? 0;
+  const withoutCustom = content.replace(CUSTOM_EMOJI, "");
+  const unicode = withoutCustom.match(UNICODE_EMOJI)?.length ?? 0;
+  const rest = withoutCustom.replace(UNICODE_EMOJI, "").replace(/\s+/g, "");
+  const total = custom + unicode;
+  return rest === "" && total > 0 && total <= 30;
 }
 
 /** Format a Discord timestamp with the given format flag */

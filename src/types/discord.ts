@@ -62,6 +62,9 @@ export enum DiscordMessageType {
   ChannelFollowAdd = 12,
   GuildDiscoveryDisqualified = 14,
   GuildDiscoveryRequalified = 15,
+  GuildDiscoveryGracePeriodInitialWarning = 16,
+  GuildDiscoveryGracePeriodFinalWarning = 17,
+  ThreadCreated = 18,
   Reply = 19,
   ChatInputCommand = 20,
   ThreadStarterMessage = 21,
@@ -75,6 +78,11 @@ export enum DiscordMessageType {
   StageSpeaker = 29,
   StageTopic = 31,
   GuildApplicationPremiumSubscription = 32,
+  GuildIncidentAlertModeEnabled = 36,
+  GuildIncidentAlertModeDisabled = 37,
+  GuildIncidentReportRaid = 38,
+  GuildIncidentReportFalseAlarm = 39,
+  PollResult = 46,
 }
 
 export interface DiscordAttachment {
