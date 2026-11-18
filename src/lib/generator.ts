@@ -91,9 +91,15 @@ function resolveMedia(url: string): string {
   return _mediaMap?.get(url) ?? url;
 }
 
-/** Strip sequences that could break out of a <style> block */
+/**
+ * Neutralise anything that could close the <style> block.
+ * The HTML parser ends a style element at `</style` in any letter case, so a
+ * backslash is inserted between `<` and `/`. Inserting rather than deleting
+ * means a pass can never assemble a new `</style` out of the leftovers, and in
+ * CSS `\/` is just `/`, so legitimate rules are unaffected.
+ */
 function sanitizeCss(css: string): string {
-  return css.replace(/<\/?style[^>]*>/gi, "");
+  return css.replace(/<\/(?=style)/gi, "<\\/");
 }
 
 // ─── Options ───

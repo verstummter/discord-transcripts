@@ -27,11 +27,25 @@ describe("document", () => {
   });
 
   test("customCss and fontFamily cannot close the style block", () => {
-    const html = render(transcript([]), {
-      customCss: "</style><script>alert(1)</script>",
-      fontFamily: "x</style><script>alert(2)</script>",
-    });
-    expect(count(html, "</style>")).toBe(1);
+    const attempts = [
+      "</style><script>alert(1)</script>",
+      "<</style>/style><script>alert(1)</script>",
+      "</sty</style>le><script>alert(1)</script>",
+      "</STYLE ><script>alert(1)</script>",
+      "</style\n><script>alert(1)</script>",
+    ];
+    for (const css of attempts) {
+      for (const html of [render(transcript([]), { customCss: css }), render(transcript([]), { fontFamily: css })]) {
+        // The only closing tag is the real one, after the payload, so the payload stays inert CSS text
+        expect(html.match(/<\/style/gi)?.length).toBe(1);
+        expect(html.search(/<\/style/i)).toBeGreaterThan(html.indexOf("alert(1)"));
+      }
+    }
+  });
+
+  test("ordinary customCss is passed through unchanged", () => {
+    const css = ".discord-dark { --dc-accent-primary: #e94560; } a::after { content: \"/\"; }";
+    expect(render(transcript([]), { customCss: css })).toContain(css);
   });
 
   test("includeJson escapes every < in the data block", () => {
@@ -185,11 +199,13 @@ describe("replies and forwards", () => {
 
 describe("rich content", () => {
   test("image, video and file attachments", () => {
-    const out = body(render(transcript([message("", { attachments: [
-      { id: "1", filename: "a.png", size: 10, url: "https://cdn.example/a.png", contentType: "image/png" },
-      { id: "2", filename: "b.mp4", size: 10, url: "https://cdn.example/b.mp4", contentType: "video/mp4" },
-      { id: "3", filename: "c.zip", size: 2048, url: "https://cdn.example/c.zip", contentType: "application/zip" },
-    ] })])));
+    const out = body(render(transcript([message("", {
+      attachments: [
+        { id: "1", filename: "a.png", size: 10, url: "https://cdn.example/a.png", contentType: "image/png" },
+        { id: "2", filename: "b.mp4", size: 10, url: "https://cdn.example/b.mp4", contentType: "video/mp4" },
+        { id: "3", filename: "c.zip", size: 2048, url: "https://cdn.example/c.zip", contentType: "application/zip" },
+      ]
+    })])));
     expect(out).toContain('<img src="https://cdn.example/a.png"');
     expect(out).toContain("<video controls");
     expect(out).toContain("c.zip</a>");
@@ -197,17 +213,21 @@ describe("rich content", () => {
   });
 
   test("attachment URLs with a dangerous scheme are dropped", () => {
-    const out = body(render(transcript([message("", { attachments: [
-      { id: "3", filename: "c.zip", size: 1, url: "javascript:alert(1)", contentType: "application/zip" },
-    ] })])));
+    const out = body(render(transcript([message("", {
+      attachments: [
+        { id: "3", filename: "c.zip", size: 1, url: "javascript:alert(1)", contentType: "application/zip" },
+      ]
+    })])));
     expect(out).not.toContain('href="javascript:');
   });
 
   test("embed with title, fields and colour", () => {
-    const out = body(render(transcript([message("", { embeds: [{
-      title: "Title", description: "**desc**", color: 0x00ff00,
-      fields: [{ name: "Field", value: "Value", inline: true }],
-    }] })])));
+    const out = body(render(transcript([message("", {
+      embeds: [{
+        title: "Title", description: "**desc**", color: 0x00ff00,
+        fields: [{ name: "Field", value: "Value", inline: true }],
+      }]
+    })])));
     expect(out).toContain("border-left-color:#00ff00");
     expect(out).toContain("<strong>desc</strong>");
     expect(out).toContain("discord-embed-field-inline");
@@ -230,14 +250,16 @@ describe("rich content", () => {
   });
 
   test("poll percentages and winner", () => {
-    const out = body(render(transcript([message("", { poll: {
-      question: { text: "Pick" },
-      answers: [
-        { answerId: 1, pollMedia: { text: "A" }, count: 3 },
-        { answerId: 2, pollMedia: { text: "B" }, count: 1 },
-      ],
-      isFinalized: true,
-    } })])));
+    const out = body(render(transcript([message("", {
+      poll: {
+        question: { text: "Pick" },
+        answers: [
+          { answerId: 1, pollMedia: { text: "A" }, count: 3 },
+          { answerId: 2, pollMedia: { text: "B" }, count: 1 },
+        ],
+        isFinalized: true,
+      }
+    })])));
     expect(out).toContain("75%");
     expect(out).toContain("25%");
     expect(count(out, "discord-poll-answer-winner")).toBe(1);

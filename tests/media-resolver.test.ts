@@ -41,11 +41,13 @@ describe("resolveMediaUrls", () => {
       author: { id: "1", username: "u", avatar: "https://cdn.example/avatar.png" },
       embeds: [{ image: { url: "https://cdn.example/embed.png" }, footer: { text: "f", iconUrl: "https://cdn.example/footer.png" } }],
       reactions: [{ emoji: { id: "222", name: "x", animated: true }, count: 1 }],
-      components: [{ type: 17, components: [
-        { type: 13, file: { url: "https://cdn.example/file.pdf" } },
-        { type: 11, media: { url: "https://cdn.example/thumb.png" } },
-        { type: 12, items: [{ media: { url: "https://cdn.example/gallery.png" } }] },
-      ] }],
+      components: [{
+        type: 17, components: [
+          { type: 13, file: { url: "https://cdn.example/file.pdf" } },
+          { type: 11, media: { url: "https://cdn.example/thumb.png" } },
+          { type: 12, items: [{ media: { url: "https://cdn.example/gallery.png" } }] },
+        ]
+      }],
       messageSnapshots: [{ content: "", attachments: [{ id: "9", filename: "s", size: 1, url: "https://cdn.example/forwarded.png" }] }],
     })], { guild: { id: "5", name: "g", icon: "abc" } }));
 
